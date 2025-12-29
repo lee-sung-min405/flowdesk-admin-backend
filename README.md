@@ -162,3 +162,4 @@ Multi-tenant B2B CRM & Counseling Admin SaaS built with NestJS and React.js.
 - DB 레벨에서 즉시 실패
 
 ---
+<img width="1056" height="2782" alt="flowdesk_admin_prod" src="https://github.com/user-attachments/assets/abe36c34-cc9b-49e8-a31c-26e42b0fce61" />
