@@ -96,3 +96,101 @@ Nest is an MIT-licensed open source project. It can grow thanks to the sponsors 
 ## License
 
 Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+
+## Project additions for flowdesk-admin (Auth, Swagger, Health)
+
+The backend has been extended with practical features for this project. Below is a summary of the additions and how to use them.
+
+Features added
+- JWT authentication (login) and protected route
+- User registration (signup)
+- Swagger API docs (available at /api in non-production)
+- Health check endpoint (/health)
+
+Endpoints
+ - POST /auth/register  — 회원가입 (Register)
+  - Body: { tenantName, userId, password, corpName, userName, userEmail?, userTel?, userHp? }
+  - Response: created user (without password)
+
+ - POST /auth/login — 로그인
+  - Body: { tenantName, userId, password }
+  - Response: { accessToken, expiresIn, user }
+  - Also returns a refreshToken and refreshExpiresAt. Use POST /auth/refresh to exchange refresh token for a new access token.
+
+- GET /auth/me — 토큰 기반 사용자 정보 (Authorization: Bearer <token>)
+
+- GET /health — 헬스 체크, DB 연결 상태 포함
+
+Swagger
+- Available at: http://localhost:3000/api (disabled when NODE_ENV=production)
+- Includes JWT bearer auth in the UI (you can paste the token to authorize)
+
+Environment variables to add (backend/.env or .env.development)
+- JWT_SECRET=your_jwt_secret_here
+- JWT_EXPIRES_IN=3600s
+
+Required packages (install in backend folder)
+- passport @nestjs/passport passport-jwt
+- @nestjs/jwt
+- bcrypt
+  example:
+  ```bash
+  cd backend
+  npm install passport @nestjs/passport passport-jwt @nestjs/jwt bcrypt --save
+  npm install -D @types/passport @types/passport-jwt
+  ```
+
+Quick test examples (curl)
+- Register (success):
+  ```bash
+  curl -X POST http://localhost:3000/auth/register \
+    -H "Content-Type: application/json" \
+    -d '{"tenantName":"tenant-a","userId":"alice","password":"password123","corpName":"ACME","userName":"Alice"}'
+  ```
+
+- Register (duplicate user -> 409):
+  ```bash
+  curl -X POST http://localhost:3000/auth/register \
+    -H "Content-Type: application/json" \
+    -d '{"tenantName":"tenant-a","userId":"alice","password":"password123","corpName":"ACME","userName":"Alice"}'
+  ```
+
+- Login:
+  ```bash
+  curl -X POST http://localhost:3000/auth/login \
+    -H "Content-Type: application/json" \
+    -d '{"tenantName":"tenant-a","userId":"alice","password":"password123"}'
+  ```
+
+- Protected call (use returned token):
+  ```bash
+  curl http://localhost:3000/auth/me -H "Authorization: Bearer <ACCESS_TOKEN>"
+  ```
+
+- Refresh token exchange:
+  ```bash
+  curl -X POST http://localhost:3000/auth/refresh \
+    -H "Content-Type: application/json" \
+    -d '{"refreshToken":"<REFRESH_TOKEN>"}'
+  ```
+
+- Logout / revoke refresh token:
+  ```bash
+  curl -X POST http://localhost:3000/auth/logout \
+    -H "Content-Type: application/json" \
+    -d '{"refreshToken":"<REFRESH_TOKEN>"}'
+  ```
+
+- Logout from all devices (revoke all refresh tokens for current user):
+  ```bash
+  # requires an Authorization: Bearer <ACCESS_TOKEN> header
+  curl -X POST http://localhost:3000/auth/logout-all \
+    -H "Authorization: Bearer <ACCESS_TOKEN>"
+  ```
+
+Notes and gotchas
+- Ensure your MySQL database is running and the `tenants` and `users` tables exist.
+- The project expects `users.user_pwd` to store a bcrypt hash. Registration hashes the password automatically.
+- Swagger is disabled in production by default.
+
+If you want, I can also add a short `backend/USAGE.md` with these commands and examples.

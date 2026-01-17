@@ -4,6 +4,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { DatabaseModule } from './database/database.module';
 import { HealthModule } from './modules/health/health.module';
+import { AuthModule } from './modules/auth/auth.module';
 import { validate } from './config/validation';
 import databaseConfig from './config/configuration';
 
@@ -18,6 +19,7 @@ import databaseConfig from './config/configuration';
     }),
   DatabaseModule,
   HealthModule,
+  AuthModule,
   ],
   controllers: [AppController],
   providers: [AppService],

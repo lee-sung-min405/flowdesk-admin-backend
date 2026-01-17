@@ -16,7 +16,8 @@ async function bootstrap() {
         { type: 'http', scheme: 'bearer', bearerFormat: 'JWT', in: 'header' },
         'JWT',
       )
-      .addTag('health', '헬스체크 및 진단')
+  .addTag('health', '헬스체크 및 진단')
+  .addTag('인증', '인증 관련 API')
       .setContact('flowdesk', 'https://github.com/lee-sung-min405/flowdesk-admin', '')
       .addServer(`http://localhost:${port}`)
       .build();
