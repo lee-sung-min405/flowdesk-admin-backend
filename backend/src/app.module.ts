@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { DatabaseModule } from './database/database.module';
+import { HealthModule } from './modules/health/health.module';
 import { validate } from './config/validation';
 import databaseConfig from './config/configuration';
 
@@ -15,7 +16,8 @@ import databaseConfig from './config/configuration';
       validate,
       cache: true,
     }),
-    DatabaseModule,
+  DatabaseModule,
+  HealthModule,
   ],
   controllers: [AppController],
   providers: [AppService],
