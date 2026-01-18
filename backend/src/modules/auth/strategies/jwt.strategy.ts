@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
@@ -6,6 +6,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from '../../iam/entities/user.entity';
 import { SafeUser } from '../types/safe-user.type';
+import { AuthenticationException } from '../../../common/exceptions/base.exception';
 
 interface JwtPayload {
   sub: number; // userSeq
@@ -35,10 +36,17 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       where: { userSeq: payload.sub },
       relations: { tenant: true },
     });
-    if (!user) throw new UnauthorizedException('User not found');
-    if (user.isActive === 0) throw new UnauthorizedException('User inactive');
+    if (!user) {
+      throw new AuthenticationException('User not found for JWT token', { userSeq: payload.sub });
+    }
+    if (user.isActive === 0) {
+      throw new AuthenticationException('User account is inactive', { userSeq: user.userSeq });
+    }
     if (typeof payload.tokenVersion !== 'undefined' && payload.tokenVersion !== (user as any).tokenVersion) {
-      throw new UnauthorizedException('Token has been revoked');
+      throw new AuthenticationException(
+        'Token version mismatch - token has been revoked',
+        { userSeq: user.userSeq, tokenVersion: payload.tokenVersion, currentVersion: (user as any).tokenVersion },
+      );
     }
 
     const { userPwd, tenant, ...rest } = user as any;

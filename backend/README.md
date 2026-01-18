@@ -97,13 +97,17 @@ Nest is an MIT-licensed open source project. It can grow thanks to the sponsors 
 
 Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
 
-## Project additions for flowdesk-admin (Auth, Swagger, Health)
+## Project additions for flowdesk-admin (Auth, Swagger, Health, Error Handling)
 
 The backend has been extended with practical features for this project. Below is a summary of the additions and how to use them.
 
 Features added
 - JWT 인증 (로그인) 및 보호된 라우트
 - 사용자 등록(회원가입)
+- **표준화된 에러 처리 시스템** (2026-01-18 추가)
+  - 전역 예외 필터를 통한 일관된 에러 응답
+  - 보안 정보 노출 방지 (내부 로그 vs 외부 응답 분리)
+  - 에러 코드 기반 체계 (AUTH001, VAL001, BIZ001 등)
  - 리프레시 토큰 (요약)
 
   리프레시 토큰은 액세스 토큰 만료 시 새 액세스 토큰을 받기 위해 사용하는 별도의 자격증명입니다. 발급된 리프레시 토큰은 `tokenId.secret` 형식이며, 서버는 원시 secret을 저장하지 않고 `tokenId`와 bcrypt 해시(`token_hash`)만 보관합니다.
@@ -152,6 +156,168 @@ Endpoints
 Swagger
 - Available at: http://localhost:3000/api (disabled when NODE_ENV=production)
 - Includes JWT bearer auth in the UI (you can paste the token to authorize)
+- **모든 API 에러 응답이 표준화된 형식으로 문서화됨** (에러 코드, 메시지, 예시 포함)
+
+## Error Handling System (2026-01-18)
+
+### 에러 응답 구조
+
+모든 API 에러는 다음과 같은 일관된 형식으로 반환됩니다:
+
+```json
+{
+  "error": {
+    "code": "AUTH001",
+    "message": "Authentication required",
+    "statusCode": 401
+  },
+  "meta": {
+    "timestamp": "2026-01-18T12:34:56.789Z",
+    "path": "/auth/login"
+  }
+}
+```
+
+### 에러 코드 체계
+
+| 에러 코드 | HTTP 상태 | 의미 | 사용 예시 |
+|---------|---------|------|----------|
+| `AUTH001` | 401 | 인증 실패 | 토큰 없음/만료/위조, 비밀번호 틀림, 비활성 계정 |
+| `AUTH101` | 403 | 권한 없음 | 다른 사용자의 리소스 접근 시도 |
+| `VAL001` | 400 | 입력 검증 실패 | 필수 파라미터 누락, 형식 오류 |
+| `BIZ001` | 409 | 비즈니스 충돌 | 중복 사용자 등록 |
+
+### 보안 원칙
+
+**정보 노출 최소화**: 클라이언트에는 최소한의 정보만 제공하고, 상세한 에러 원인은 서버 로그에만 기록합니다.
+
+- ❌ **이전**: `"User not found"`, `"Invalid tenant"` → 계정/테넌트 존재 여부 노출
+- ✅ **현재**: `"Authentication required"` → 모든 인증 실패에 동일한 메시지
+
+**내부 로그 예시** (서버만 확인 가능):
+```json
+{
+  "timestamp": "2026-01-18T12:34:56.789Z",
+  "errorCode": "AUTH001",
+  "statusCode": 401,
+  "path": "/auth/login",
+  "userSeq": null,
+  "tenantId": null,
+  "internalMessage": "User not found",
+  "context": { "tenantId": 5, "userId": "test@example.com" }
+}
+```
+
+### 에러 응답 예시
+
+<details>
+<summary>로그인 실패 (401)</summary>
+
+```bash
+curl -X POST http://localhost:3000/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"tenantName":"invalid","userId":"test","password":"wrong"}'
+
+# Response:
+{
+  "error": {
+    "code": "AUTH001",
+    "message": "Authentication required",
+    "statusCode": 401
+  },
+  "meta": {
+    "timestamp": "2026-01-18T12:34:56.789Z",
+    "path": "/auth/login"
+  }
+}
+```
+</details>
+
+<details>
+<summary>필수 파라미터 누락 (400)</summary>
+
+```bash
+curl -X POST http://localhost:3000/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"userId":"test","password":"123"}'
+
+# Response:
+{
+  "error": {
+    "code": "VAL001",
+    "message": "tenantName is required",
+    "statusCode": 400
+  },
+  "meta": {
+    "timestamp": "2026-01-18T12:34:56.789Z",
+    "path": "/auth/login"
+  }
+}
+```
+</details>
+
+<details>
+<summary>권한 없음 (403)</summary>
+
+```bash
+curl -X POST http://localhost:3000/auth/logout \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <TOKEN>" \
+  -d '{"refreshToken":"other-users-token.secret"}'
+
+# Response:
+{
+  "error": {
+    "code": "AUTH101",
+    "message": "Forbidden",
+    "statusCode": 403
+  },
+  "meta": {
+    "timestamp": "2026-01-18T12:34:56.789Z",
+    "path": "/auth/logout"
+  }
+}
+```
+</details>
+
+<details>
+<summary>중복 리소스 (409)</summary>
+
+```bash
+curl -X POST http://localhost:3000/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"tenantName":"tenant-a","userId":"existing-user","password":"123","corpName":"ACME","userName":"Alice"}'
+
+# Response:
+{
+  "error": {
+    "code": "BIZ001",
+    "message": "User already exists",
+    "statusCode": 409
+  },
+  "meta": {
+    "timestamp": "2026-01-18T12:34:56.789Z",
+    "path": "/auth/register"
+  }
+}
+```
+</details>
+
+### 에러 처리 아키텍처
+
+```
+src/common/
+├── exceptions/
+│   └── base.exception.ts          # BaseBusinessException, AuthenticationException, etc.
+├── filters/
+│   └── global-exception.filter.ts # 전역 예외 필터 (모든 에러 포착)
+└── dto/
+    └── error-response.dto.ts      # Swagger 문서용 DTO
+```
+
+- **BaseBusinessException**: 모든 도메인에서 재사용 가능한 예외 기본 클래스
+- **GlobalExceptionFilter**: 전역 예외 필터로 모든 에러를 표준 형식으로 변환
+- **내부/외부 분리**: 로그(상세) vs 응답(간결) 완전 분리
 
 Environment variables to add (backend/.env or .env.development)
 - JWT_SECRET=your_jwt_secret_here
@@ -184,30 +350,76 @@ Required packages (install in backend folder)
   ```
 
 Quick test examples (curl)
+
+### 성공 케이스
+
 - Register (success):
   ```bash
   curl -X POST http://localhost:3000/auth/register \
     -H "Content-Type: application/json" \
     -d '{"tenantName":"tenant-a","userId":"alice","password":"password123","corpName":"ACME","userName":"Alice"}'
+  
+  # Response (200):
+  # { "userSeq": 1, "userId": "alice", "userName": "Alice", ... }
   ```
 
-- Register (duplicate user -> 409):
-  ```bash
-  curl -X POST http://localhost:3000/auth/register \
-    -H "Content-Type: application/json" \
-    -d '{"tenantName":"tenant-a","userId":"alice","password":"password123","corpName":"ACME","userName":"Alice"}'
-  ```
-
-- Login:
+- Login (success):
   ```bash
   curl -X POST http://localhost:3000/auth/login \
     -H "Content-Type: application/json" \
     -d '{"tenantName":"tenant-a","userId":"alice","password":"password123"}'
+  
+  # Response (200):
+  # { "accessToken": "eyJhbGc...", "refreshToken": "uuid.secret", ... }
   ```
 
 - Protected call (use returned token):
   ```bash
-  curl http://localhost:3000/auth/me -H "Authorization: Bearer <ACCESS_TOKEN>"
+  curl http://localhost:3000/auth/me \
+    -H "Authorization: Bearer <ACCESS_TOKEN>"
+  
+  # Response (200):
+  # { "user": { "userSeq": 1, "userId": "alice", ... } }
+  ```
+
+### 에러 케이스
+
+- Register (duplicate user → 409 BIZ001):
+  ```bash
+  curl -X POST http://localhost:3000/auth/register \
+    -H "Content-Type: application/json" \
+    -d '{"tenantName":"tenant-a","userId":"alice","password":"password123","corpName":"ACME","userName":"Alice"}'
+  
+  # Response (409):
+  # { "error": { "code": "BIZ001", "message": "User already exists", "statusCode": 409 }, ... }
+  ```
+
+- Login (wrong password → 401 AUTH001):
+  ```bash
+  curl -X POST http://localhost:3000/auth/login \
+    -H "Content-Type: application/json" \
+    -d '{"tenantName":"tenant-a","userId":"alice","password":"wrongpassword"}'
+  
+  # Response (401):
+  # { "error": { "code": "AUTH001", "message": "Authentication required", "statusCode": 401 }, ... }
+  ```
+
+- Login (missing tenantName → 400 VAL001):
+  ```bash
+  curl -X POST http://localhost:3000/auth/login \
+    -H "Content-Type: application/json" \
+    -d '{"userId":"alice","password":"password123"}'
+  
+  # Response (400):
+  # { "error": { "code": "VAL001", "message": "tenantName is required", "statusCode": 400 }, ... }
+  ```
+
+- Protected call without token (→ 401 AUTH001):
+  ```bash
+  curl http://localhost:3000/auth/me
+  
+  # Response (401):
+  # { "error": { "code": "AUTH001", "message": "Authentication required", "statusCode": 401 }, ... }
   ```
 
 - Refresh token exchange:
@@ -215,25 +427,71 @@ Quick test examples (curl)
   curl -X POST http://localhost:3000/auth/refresh \
     -H "Content-Type: application/json" \
     -d '{"refreshToken":"<REFRESH_TOKEN>"}'
+  
+  # Success (200): { "accessToken": "...", "refreshToken": "new-token.secret", ... }
+  # Error (401): { "error": { "code": "AUTH001", "message": "Authentication required", ... } }
   ```
 
 - Logout / revoke refresh token:
   ```bash
   curl -X POST http://localhost:3000/auth/logout \
     -H "Content-Type: application/json" \
+    -H "Authorization: Bearer <ACCESS_TOKEN>" \
     -d '{"refreshToken":"<REFRESH_TOKEN>"}'
+  
+  # Success (200): { "ok": true }
+  # Error (403): { "error": { "code": "AUTH101", "message": "Forbidden", ... } } # 다른 사용자의 토큰
   ```
 
 - Logout from all devices (revoke all refresh tokens for current user):
   ```bash
-  # requires an Authorization: Bearer <ACCESS_TOKEN> header
   curl -X POST http://localhost:3000/auth/logout-all \
     -H "Authorization: Bearer <ACCESS_TOKEN>"
+  
+  # Success (200): { "ok": true }
+  # Error (401): { "error": { "code": "AUTH001", "message": "Authentication required", ... } }
   ```
 
 Notes and gotchas
 - Ensure your MySQL database is running and the `tenants` and `users` tables exist.
+- **모든 에러 응답은 표준 형식을 따릅니다** (error.code, error.message, meta.timestamp, meta.path)
+- **Swagger 문서**(`/api`)에서 각 API의 에러 응답 예시를 확인할 수 있습니다
+- **보안**: 인증 실패 시 상세 원인은 서버 로그에만 기록되며, 클라이언트에는 "Authentication required"만 반환됩니다
 - The project expects `users.user_pwd` to store a bcrypt hash. Registration hashes the password automatically.
 - Swagger is disabled in production by default.
+
+## 프론트엔드 에러 처리 가이드
+
+에러 코드 기반으로 UI 처리:
+
+```typescript
+try {
+  const response = await axios.post('/auth/login', { tenantName, userId, password });
+} catch (error) {
+  const errorCode = error.response?.data?.error?.code;
+  const message = error.response?.data?.error?.message;
+  
+  switch (errorCode) {
+    case 'AUTH001':
+      // 로그인 페이지로 리다이렉트 또는 "인증이 필요합니다" 메시지
+      router.push('/login');
+      break;
+    case 'VAL001':
+      // 입력 폼 검증 메시지 표시
+      toast.error(message); // "tenantName is required"
+      break;
+    case 'BIZ001':
+      // 비즈니스 로직 에러 메시지 표시
+      toast.error(message); // "User already exists"
+      break;
+    case 'AUTH101':
+      // 권한 없음 페이지로 리다이렉트
+      router.push('/forbidden');
+      break;
+    default:
+      toast.error('An error occurred. Please try again.');
+  }
+}
+```
 
 If you want, I can also add a short `backend/USAGE.md` with these commands and examples.

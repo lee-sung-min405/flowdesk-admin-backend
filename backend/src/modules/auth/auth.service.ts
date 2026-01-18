@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException, ForbiddenException, ConflictException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from '../iam/entities/user.entity';
@@ -8,6 +8,12 @@ import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { randomBytes, randomUUID } from 'crypto';
+import {
+  AuthenticationException,
+  AuthorizationException,
+  ValidationException,
+  BusinessConflictException,
+} from '../../common/exceptions/base.exception';
 
 @Injectable()
 export class AuthService {
@@ -35,22 +41,33 @@ export class AuthService {
     const user = await this.userRepository.findOne({
       where: { tenantId, userId },
     });
-    if (!user) throw new UnauthorizedException('Invalid credentials');
-    if (user.isActive === 0) throw new ForbiddenException('User inactive');
+    if (!user) {
+      throw new AuthenticationException('User not found', { tenantId, userId });
+    }
+    if (user.isActive === 0) {
+      throw new AuthenticationException('User inactive', { userSeq: user.userSeq });
+    }
 
     const match = await bcrypt.compare(password, user.userPwd);
-    if (!match) throw new UnauthorizedException('Invalid credentials');
+    if (!match) {
+      throw new AuthenticationException('Invalid password', { userSeq: user.userSeq });
+    }
 
     return this.toSafeUser(user as any);
   }
 
   async login(payload: { tenantName: string; userId: string; password: string }) {
     if (!payload.tenantName) {
-      throw new UnauthorizedException('tenantName is required');
+      throw new ValidationException(
+        'tenantName missing in request',
+        'tenantName is required',
+      );
     }
 
     const tenant = await this.tenantRepository.findOne({ where: { tenantName: payload.tenantName } });
-    if (!tenant) throw new UnauthorizedException('Invalid tenant');
+    if (!tenant) {
+      throw new AuthenticationException('Tenant not found', { tenantName: payload.tenantName });
+    }
 
     const safeUser = await this.validateUserByTenant(tenant.tenantId, payload.userId, payload.password);
 
@@ -95,22 +112,41 @@ export class AuthService {
   }
 
   async refresh(refreshToken: string) {
-    if (!refreshToken) throw new UnauthorizedException('refreshToken required');
+    if (!refreshToken) {
+      throw new ValidationException(
+        'refreshToken missing in request',
+        'refreshToken is required',
+      );
+    }
     const parts = refreshToken.split('.');
-    if (parts.length !== 2) throw new UnauthorizedException('Invalid refresh token');
+    if (parts.length !== 2) {
+      throw new AuthenticationException('Invalid refresh token format', { refreshToken });
+    }
     const [tokenId, secret] = parts;
 
     const rec = await this.refreshRepository.findOne({ where: { tokenId } });
-    if (!rec) throw new UnauthorizedException('Invalid refresh token');
-    if (rec.revoked === 1) throw new UnauthorizedException('Refresh token revoked');
-    if (rec.expiresAt.getTime() < Date.now()) throw new UnauthorizedException('Refresh token expired');
+    if (!rec) {
+      throw new AuthenticationException('Refresh token not found', { tokenId });
+    }
+    if (rec.revoked === 1) {
+      throw new AuthenticationException('Refresh token already revoked', { tokenId });
+    }
+    if (rec.expiresAt.getTime() < Date.now()) {
+      throw new AuthenticationException('Refresh token expired', { tokenId, expiresAt: rec.expiresAt });
+    }
 
     const ok = await bcrypt.compare(secret, rec.tokenHash);
-    if (!ok) throw new UnauthorizedException('Invalid refresh token');
+    if (!ok) {
+      throw new AuthenticationException('Invalid refresh token secret', { tokenId });
+    }
 
     const user = await this.userRepository.findOne({ where: { userSeq: rec.userSeq }, relations: { tenant: true } });
-    if (!user) throw new UnauthorizedException('User not found');
-    if (user.isActive === 0) throw new UnauthorizedException('User inactive');
+    if (!user) {
+      throw new AuthenticationException('User not found for refresh token', { userSeq: rec.userSeq });
+    }
+    if (user.isActive === 0) {
+      throw new AuthenticationException('User account is inactive', { userSeq: user.userSeq });
+    }
 
       const updateResult = await this.refreshRepository
         .createQueryBuilder()
@@ -120,7 +156,7 @@ export class AuthService {
         .execute();
 
       if (!updateResult.affected || updateResult.affected === 0) {
-        throw new UnauthorizedException('Refresh token already used or revoked');
+        throw new AuthenticationException('Refresh token already used or revoked', { tokenId });
       }
 
     const newRefresh = await this.createRefreshToken(user.userSeq);
@@ -150,9 +186,14 @@ export class AuthService {
     const rec = await this.refreshRepository.findOne({ where: { tokenId } });
     if (!rec) return;
     const ok = await bcrypt.compare(secret, rec.tokenHash);
-    if (!ok) throw new UnauthorizedException('Invalid refresh token');
+    if (!ok) {
+      throw new AuthenticationException('Invalid refresh token secret', { tokenId });
+    }
     if (typeof requesterUserSeq !== 'undefined' && rec.userSeq !== requesterUserSeq) {
-      throw new UnauthorizedException('Not allowed to revoke this token');
+      throw new AuthorizationException(
+        'User not allowed to revoke this token',
+        { requesterUserSeq, tokenOwnerSeq: rec.userSeq, tokenId },
+      );
     }
       // Atomically mark revoked only if not already revoked
       const updateResult = await this.refreshRepository
@@ -171,7 +212,10 @@ export class AuthService {
   async revokeAllRefreshTokens(userSeq: number, requesterUserSeq?: number) {
     if (!userSeq) return;
     if (typeof requesterUserSeq !== 'undefined' && userSeq !== requesterUserSeq) {
-      throw new UnauthorizedException('Not allowed to revoke tokens for this user');
+      throw new AuthorizationException(
+        'User not allowed to revoke tokens for this user',
+        { requesterUserSeq, targetUserSeq: userSeq },
+      );
     }
     await this.refreshRepository.update({ userSeq }, { revoked: 1 });
 
@@ -194,16 +238,31 @@ export class AuthService {
     userHp?: string;
   }) {
     if (!payload.tenantName) {
-      throw new BadRequestException('tenantName is required');
+      throw new ValidationException(
+        'tenantName missing in registration request',
+        'tenantName is required',
+      );
     }
 
     const tenant = await this.tenantRepository.findOne({ where: { tenantName: payload.tenantName } });
-    if (!tenant) throw new BadRequestException('Invalid tenant');
+    if (!tenant) {
+      throw new ValidationException(
+        'Tenant not found during registration',
+        'Invalid tenant',
+        { tenantName: payload.tenantName },
+      );
+    }
 
     const tenantId = tenant.tenantId;
 
     const exists = await this.userRepository.findOne({ where: { tenantId, userId: payload.userId } });
-    if (exists) throw new ConflictException('User already exists');
+    if (exists) {
+      throw new BusinessConflictException(
+        `User already exists: tenantId=${tenantId}, userId=${payload.userId}`,
+        'User already exists',
+        { tenantId, userId: payload.userId },
+      );
+    }
 
     const hashed = await bcrypt.hash(payload.password, 10);
 
