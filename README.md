@@ -2,6 +2,8 @@
 
 Multi-tenant B2B CRM & Counseling Admin SaaS built with NestJS and React.js.
 
+NestJS 및 React.js로 구현된 멀티테넌트 B2B CRM 및 상담 관리용 SaaS
+
 ---
 
 ## 📋 Overview
