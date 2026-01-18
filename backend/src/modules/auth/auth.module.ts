@@ -5,6 +5,10 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { User } from '../iam/entities/user.entity';
 import { Tenant } from '../tenants/entities/tenant.entity';
 import { RefreshToken } from './entities/refresh-token.entity';
+import { Permission } from '../iam/entities/permission.entity';
+import { Role } from '../iam/entities/role.entity';
+import { UserRole } from '../iam/entities/user-role.entity';
+import { RolePermission } from '../iam/entities/role-permission.entity';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { ConfigModule, ConfigService } from '@nestjs/config';
@@ -12,7 +16,15 @@ import { JwtStrategy } from './strategies/jwt.strategy';
 
 @Module({
   imports: [
-  TypeOrmModule.forFeature([User, Tenant, RefreshToken]),
+  TypeOrmModule.forFeature([
+    User, 
+    Tenant, 
+    RefreshToken, 
+    Permission, 
+    Role,
+    UserRole,
+    RolePermission,
+  ]),
   ConfigModule,
   PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.registerAsync({
