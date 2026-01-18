@@ -111,8 +111,16 @@ export class AuthService {
     if (!user) throw new UnauthorizedException('User not found');
     if (user.isActive === 0) throw new UnauthorizedException('User inactive');
 
-    rec.revoked = 1;
-    await this.refreshRepository.save(rec);
+      const updateResult = await this.refreshRepository
+        .createQueryBuilder()
+        .update(RefreshToken)
+        .set({ revoked: 1 })
+        .where('token_id = :tokenId AND revoked = 0', { tokenId })
+        .execute();
+
+      if (!updateResult.affected || updateResult.affected === 0) {
+        throw new UnauthorizedException('Refresh token already used or revoked');
+      }
 
     const newRefresh = await this.createRefreshToken(user.userSeq);
 
@@ -132,19 +140,37 @@ export class AuthService {
     };
   }
 
-  async revokeRefreshToken(refreshToken: string) {
+  async revokeRefreshToken(refreshToken: string, requesterUserSeq?: number) {
     if (!refreshToken) return;
     const parts = refreshToken.split('.');
     if (parts.length !== 2) return;
-    const [tokenId] = parts;
+    const [tokenId, secret] = parts;
     const rec = await this.refreshRepository.findOne({ where: { tokenId } });
     if (!rec) return;
-    rec.revoked = 1;
-    await this.refreshRepository.save(rec);
+    const ok = await bcrypt.compare(secret, rec.tokenHash);
+    if (!ok) throw new UnauthorizedException('Invalid refresh token');
+    if (typeof requesterUserSeq !== 'undefined' && rec.userSeq !== requesterUserSeq) {
+      throw new UnauthorizedException('Not allowed to revoke this token');
+    }
+      // Atomically mark revoked only if not already revoked
+      const updateResult = await this.refreshRepository
+        .createQueryBuilder()
+        .update(RefreshToken)
+        .set({ revoked: 1 })
+        .where('token_id = :tokenId AND revoked = 0', { tokenId })
+        .execute();
+
+      // If affected === 0, the token was already revoked; treat as success (idempotent)
+      if (updateResult.affected === 0) {
+        return; // Idempotent success
+      }
   }
 
-  async revokeAllRefreshTokens(userSeq: number) {
+  async revokeAllRefreshTokens(userSeq: number, requesterUserSeq?: number) {
     if (!userSeq) return;
+    if (typeof requesterUserSeq !== 'undefined' && userSeq !== requesterUserSeq) {
+      throw new UnauthorizedException('Not allowed to revoke tokens for this user');
+    }
     await this.refreshRepository.update({ userSeq }, { revoked: 1 });
   }
 
