@@ -55,6 +55,20 @@ flowdesk-admin/
 - **Database**: MySQL 8.0+
 - **Language**: TypeScript
 - **인증/인가**: JWT, RBAC
+인증 방식 요약
+
+이 프로젝트는 짧은 수명 액세스 토큰(JWT)과 회전되는 리프레시 토큰을 함께 사용합니다. 리프레시 토큰은 `tokenId.secret` 형식이며, 서버는 원시 secret을 저장하지 않습니다.
+
+<details>
+<summary>상세 설명</summary>
+
+이 프로젝트의 인증은 액세스 토큰(JWT)과 별도로 리프레시 토큰을 사용하여 토큰 갱신을 처리합니다. 클라이언트에 발급되는 리프레시 토큰은 `tokenId.secret` 형식의 원시 문자열이고, 서버는 이 중 `tokenId`와 `secret`의 bcrypt 해시(`token_hash`)만 보관합니다(원시 secret은 저장하지 않음). 리프레시 요청이 성공하면 서버는 기존 리프레시 토큰을 폐기하고 새 리프레시 토큰을 발급하는 회전(rotation) 정책을 적용합니다. 이로 인해 동일한 리프레시 토큰의 재사용 공격을 어렵게 만듭니다.
+
+리프레시 토큰은 개별로 폐기(revoke)할 수 있고, 사용자의 모든 리프레시 토큰을 한 번에 폐기(logout-all)할 수도 있습니다. 전체 폐기 시에는 `users.token_version` 값을 증가시키는데, 액세스 토큰은 발급 시 `tokenVersion`을 포함하므로 값이 달라진 이후에는 이전 액세스 토큰이 더 이상 유효하지 않습니다.
+
+데이터베이스 적용(요약): 이 동작을 지원하려면 DB에 `users.token_version` 열을 추가하고 `refresh_tokens` 테이블을 생성해야 합니다. `refresh_tokens`는 일반적으로 `token_id`, `token_hash`(bcrypt 해시), `user_seq`, `expires_at`, `revoked`, `created_at` 등의 칼럼을 가지며, 중요한 보안 원칙은 서버가 원시 secret을 저장하지 않는다는 점입니다. 자세한 스키마 예시는 `backend/README.md`를 참고하세요.
+
+</details>
 
 ### Frontend
 

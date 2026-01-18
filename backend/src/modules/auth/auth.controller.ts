@@ -55,7 +55,7 @@ export class AuthController {
   @ApiOperation({ summary: '모든 기기에서 로그아웃 (현재 사용자의 모든 리프레시 토큰 폐기)' })
   @ApiBearerAuth('JWT')
   @ApiUnauthorizedResponse({ description: '유효하지 않거나 권한이 없습니다.' })
-  @ApiOkResponse({ description: '모든 리프레시 토큰이 폐기됩니다.' })
+  @ApiOkResponse({ description: '모든 리프레시 토큰이 폐기되고, 사용자 tokenVersion이 증가하여 이미 발급된 액세스 토큰은 즉시 무효화됩니다.' })
   async logoutAll(@Req() req: any) {
     const userSeq = req.user?.userSeq;
     if (!userSeq) return { ok: false };

@@ -39,6 +39,9 @@ export class User {
   @Column({ type: 'tinyint', default: 1, name: 'is_active' })
   isActive: number;
 
+  @Column({ type: 'int', default: 0, name: 'token_version' })
+  tokenVersion: number;
+
   @Column({ type: 'datetime', default: () => 'CURRENT_TIMESTAMP', name: 'reg_dtm' })
   regDtm: Date;
 

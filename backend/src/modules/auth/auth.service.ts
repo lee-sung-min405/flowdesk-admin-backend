@@ -58,6 +58,7 @@ export class AuthService {
       sub: (safeUser as any).userSeq,
       tenantName: tenant.tenantName,
       userId: (safeUser as any).userId,
+      tokenVersion: (safeUser as any).tokenVersion ?? 0,
     };
 
     const expiresIn = String(this.configService.get<string | number>('JWT_EXPIRES_IN') || '3600s');
@@ -128,6 +129,7 @@ export class AuthService {
       sub: user.userSeq,
       tenantName: user.tenant?.tenantName ?? null,
       userId: user.userId,
+      tokenVersion: (user as any).tokenVersion ?? 0,
     };
     const accessToken = this.jwtService.sign(jwtPayload);
     const expiresIn = String(this.configService.get<string | number>('JWT_EXPIRES_IN') || '3600s');
@@ -172,6 +174,13 @@ export class AuthService {
       throw new UnauthorizedException('Not allowed to revoke tokens for this user');
     }
     await this.refreshRepository.update({ userSeq }, { revoked: 1 });
+
+    await this.userRepository
+      .createQueryBuilder()
+      .update(User)
+      .set({ tokenVersion: () => 'token_version + 1' })
+      .where('user_seq = :userSeq', { userSeq })
+      .execute();
   }
 
   async register(payload: {

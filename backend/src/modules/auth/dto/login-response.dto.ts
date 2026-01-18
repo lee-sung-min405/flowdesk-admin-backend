@@ -2,7 +2,7 @@ import { ApiProperty } from '@nestjs/swagger';
 import { UserDto } from './user.dto';
 
 export class LoginResponseDto {
-  @ApiProperty({ description: '액세스 토큰 (JWT)' })
+  @ApiProperty({ description: '액세스 토큰 (JWT) — payload에 tokenVersion이 포함됩니다. logout-all 호출 시 서버가 tokenVersion을 증가시키면 기존 액세스 토큰은 즉시 무효화됩니다.' })
   accessToken: string;
 
   @ApiProperty({ description: '토큰 만료(예: 3600s)', required: false })

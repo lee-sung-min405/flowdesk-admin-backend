@@ -34,4 +34,7 @@ export class UserDto implements SafeUser{
 
   @ApiProperty({ description: '등록일시' })
   regDtm: Date;
+
+  @ApiProperty({ description: '토큰 버전(액세스 토큰 무효화에 사용)', example: 0 })
+  tokenVersion?: number;
 }

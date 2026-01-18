@@ -14,6 +14,31 @@
 
 ---
 
+### RefreshToken (리프레시 토큰)
+**파일**: `src/modules/auth/entities/refresh-token.entity.ts`
+**테이블**: `refresh_tokens`
+
+리프레시 토큰은 액세스 토큰 만료 시 새 액세스 토큰을 발급하기 위해 사용됩니다. 이 프로젝트에서는 보안을 강화하기 위해 `tokenId.secret` 포맷을 사용합니다. 서버는 `tokenId`와 `secret`의 bcrypt 해시(`token_hash`)만 저장하며, 원시 `secret` 값은 저장하지 않습니다.
+
+#### 주요 속성
+- `tokenId` (PK): 토큰 ID (varchar(36) 또는 UUID 문자열)
+- `tokenHash`: 토큰 비밀의 bcrypt 해시 (varchar(200)) — 원시 secret은 저장하지 않음
+- `userSeq`: 소유자 사용자 일련번호 (int) — `users.user_seq` FK
+- `expiresAt`: 만료일시 (datetime)
+- `revoked`: 폐기 여부 (tinyint(1), default: 0)
+- `createdAt`: 생성일시 (datetime, default: CURRENT_TIMESTAMP)
+
+#### 인덱스
+- PRIMARY: `token_id`
+- INDEX: `user_seq`
+
+#### 동작 및 보안 설명
+- 클라이언트는 리프레시 토큰을 `tokenId.secret` 형식으로 보관합니다. 서버는 클라이언트가 제출한 토큰을 `.`로 분리하여 `tokenId`로 DB 레코드를 조회한 뒤, 제출된 `secret`을 `tokenHash`와 bcrypt.compare로 검증합니다.
+- 리프레시 교환(refresh) 동작은 토큰 회전(rotation) 정책을 따릅니다: 검증 성공 시 기존 토큰을 원자적으로(`WHERE revoked = 0`) `revoked = 1`로 표시하고 새 토큰을 생성해 반환합니다. 이 과정은 동시성 공격(동일 토큰의 재사용)을 막기 위해 조건부 업데이트를 사용합니다.
+- 단일 토큰 폐기(`logout`)는 `tokenId`와 `secret`을 검증한 뒤 요청자 소유권을 확인하고 해당 레코드를 폐기합니다.
+- 전체 폐기(`logout-all`)는 해당 사용자의 모든 리프레시 토큰을 `revoked = 1`로 설정하고 `users.token_version`을 증가시켜 기존 액세스 토큰을 즉시 무효화합니다.
+
+
 ## 폴더 구조
 
 ```
@@ -128,6 +153,7 @@ backend/
 - `regDtm`: 등록일시 (datetime, default: CURRENT_TIMESTAMP)
 - `stopDtm`: 활동정지일시 (datetime, nullable)
 - `tenantId`: 테넌트 ID (int, default: 1)
+ - `tokenVersion`: 토큰 버전 (INT, default: 0) — 서버에서 발급한 액세스 토큰에 포함되는 `tokenVersion` 값과 일치해야만 토큰이 유효합니다. 로그아웃-전체(`logout-all`) 시 이 값을 증가시켜 기존 액세스 토큰을 즉시 무효화합니다.
 
 #### 인덱스
 - UNIQUE: `[user_seq, tenant_id]`

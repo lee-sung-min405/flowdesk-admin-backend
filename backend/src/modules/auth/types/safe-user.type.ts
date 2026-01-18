@@ -10,4 +10,5 @@ export interface SafeUser {
   userHp?: string | null;
   isActive: number;
   regDtm: Date;
+  tokenVersion?: number;
 }

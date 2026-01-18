@@ -102,10 +102,25 @@ Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
 The backend has been extended with practical features for this project. Below is a summary of the additions and how to use them.
 
 Features added
-- JWT authentication (login) and protected route
-- User registration (signup)
-- Swagger API docs (available at /api in non-production)
-- Health check endpoint (/health)
+- JWT 인증 (로그인) 및 보호된 라우트
+- 사용자 등록(회원가입)
+ - 리프레시 토큰 (요약)
+
+  리프레시 토큰은 액세스 토큰 만료 시 새 액세스 토큰을 받기 위해 사용하는 별도의 자격증명입니다. 발급된 리프레시 토큰은 `tokenId.secret` 형식이며, 서버는 원시 secret을 저장하지 않고 `tokenId`와 bcrypt 해시(`token_hash`)만 보관합니다.
+
+  <details>
+  <summary>상세 설명</summary>
+
+  리프레시 토큰은 액세스 토큰 만료 시 새로운 액세스 토큰을 발급받기 위해 사용되는 별도의 자격증명입니다. 이 프로젝트에서는 리프레시 토큰을 `tokenId.secret` 형태로 발급하고, 서버는 `tokenId`와 `secret`의 bcrypt 해시(`token_hash`)만 저장합니다. 클라이언트가 리프레시 요청을 보내면 서버는 제출된 `secret`을 저장된 해시와 비교하여 검증합니다.
+
+  보안 동작 요약:
+  - 리프레시 토큰은 사용 시 회전(rotation)됩니다. 즉, 리프레시가 성공하면 서버는 기존 토큰을 폐기하고 새 토큰을 발급합니다. 이 과정은 동일 토큰의 재사용을 어렵게 만듭니다.
+  - 특정 리프레시 토큰만 폐기할 수 있고(로그아웃), 사용자의 모든 리프레시 토큰을 한 번에 폐기할 수도 있습니다(로그아웃-전체).
+  - 전체 폐기 시 `users.token_version` 값을 증가시키는데, 액세스 토큰은 발급 시 `tokenVersion`을 포함하므로 값이 변경된 이후에는 이전 액세스 토큰이 더 이상 유효하지 않습니다.
+
+  </details>
+- Swagger API 문서 (비프로덕션 환경에서 `/api`에 제공)
+- 헬스 체크 엔드포인트 (/health)
 
 Endpoints
  - POST /auth/register  — 회원가입 (Register)
@@ -114,12 +129,25 @@ Endpoints
 
  - POST /auth/login — 로그인
   - Body: { tenantName, userId, password }
-  - Response: { accessToken, expiresIn, user }
-  - Also returns a refreshToken and refreshExpiresAt. Use POST /auth/refresh to exchange refresh token for a new access token.
+  - Response: { accessToken, expiresIn, user, refreshToken, refreshExpiresAt }
+  - Note: the returned refreshToken has the raw format `tokenId.secret`. The server stores `tokenId` and a bcrypt hash of the `secret` only — the raw secret is never stored. Use POST /auth/refresh to exchange the refresh token for a new access token. On successful refresh the server rotates the refresh token (returns a new refreshToken) and revokes the previous one atomically.
 
 - GET /auth/me — 토큰 기반 사용자 정보 (Authorization: Bearer <token>)
 
 - GET /health — 헬스 체크, DB 연결 상태 포함
+
+- POST /auth/refresh — 리프레시 토큰으로 액세스 토큰 갱신
+  - Body: { refreshToken: "<tokenId.secret>" }
+  - Response: { accessToken, expiresIn, user, refreshToken, refreshExpiresAt }
+  - Security notes: the server verifies the secret part using bcrypt.compare against the stored hash. If another concurrent request uses the same refresh token, the server revokes the old token with a conditional (WHERE revoked = 0) update to prevent reuse.
+
+- POST /auth/logout — 로그아웃 (단일 리프레시 토큰 폐기)
+  - Body: { refreshToken: "<tokenId.secret>" }
+  - Behavior: verifies the secret, ensures the requester owns the token, then revokes that refresh token.
+
+- POST /auth/logout-all — 모든 장치에서 로그아웃 (현재 사용자에 대한 모든 리프레시 토큰 폐기)
+  - Requires: Authorization: Bearer <ACCESS_TOKEN>
+  - Behavior: revokes all refresh tokens for the current user and increments `users.token_version`. Access tokens carry `tokenVersion` in their payload; incrementing `token_version` immediately invalidates previously issued access tokens.
 
 Swagger
 - Available at: http://localhost:3000/api (disabled when NODE_ENV=production)
@@ -128,6 +156,21 @@ Swagger
 Environment variables to add (backend/.env or .env.development)
 - JWT_SECRET=your_jwt_secret_here
 - JWT_EXPIRES_IN=3600s
+- REFRESH_EXPIRES_DAYS=7    # (optional) refresh token lifetime in days, default 7
+
+데이터베이스 마이그레이션 안내
+
+- 이 변경은 `users` 테이블에 `token_version` 컬럼을 추가하고 `refresh_tokens` 테이블을 생성하는 마이그레이션이 필요합니다. 예시 마이그레이션 작업:
+  1) `users.token_version INT NOT NULL DEFAULT 0` 컬럼 추가
+  2) `refresh_tokens` 테이블 생성 (예시 컬럼):
+    - `token_id` VARCHAR(36) PRIMARY KEY
+    - `token_hash` VARCHAR(200) NOT NULL  -- bcrypt 해시
+    - `user_seq` INT NOT NULL              -- `users.user_seq` FK
+    - `expires_at` DATETIME NOT NULL
+    - `revoked` TINYINT(1) NOT NULL DEFAULT 0
+    - `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+
+  참고: 리프레시 토큰 설계상 서버에는 원시 `secret`을 저장하지 않고 `token_hash`에 bcrypt로 해시된 값만 저장합니다.
 
 Required packages (install in backend folder)
 - passport @nestjs/passport passport-jwt

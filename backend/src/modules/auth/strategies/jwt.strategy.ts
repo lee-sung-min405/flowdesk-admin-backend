@@ -11,6 +11,7 @@ interface JwtPayload {
   sub: number; // userSeq
   userId?: string;
   tenantName?: string;
+  tokenVersion?: number;
   iat?: number;
   exp?: number;
 }
@@ -36,6 +37,9 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
     if (!user) throw new UnauthorizedException('User not found');
     if (user.isActive === 0) throw new UnauthorizedException('User inactive');
+    if (typeof payload.tokenVersion !== 'undefined' && payload.tokenVersion !== (user as any).tokenVersion) {
+      throw new UnauthorizedException('Token has been revoked');
+    }
 
     const { userPwd, tenant, ...rest } = user as any;
     const safe: SafeUser = {
@@ -50,6 +54,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       userHp: rest.userHp ?? null,
       isActive: rest.isActive,
       regDtm: rest.regDtm,
+      tokenVersion: (user as any).tokenVersion,
     };
 
     return safe;
