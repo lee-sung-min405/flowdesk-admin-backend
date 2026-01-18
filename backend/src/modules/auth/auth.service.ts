@@ -1,9 +1,11 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from '../iam/entities/user.entity';
 import { Tenant } from '../tenants/entities/tenant.entity';
 import { RefreshToken } from './entities/refresh-token.entity';
+import { Permission } from '../iam/entities/permission.entity';
+import { Role } from '../iam/entities/role.entity';
 import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
@@ -14,9 +16,12 @@ import {
   ValidationException,
   BusinessConflictException,
 } from '../../common/exceptions/base.exception';
+import { PageNodeDto, ActionDetailDto } from './dto/me-response.dto';
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
@@ -24,6 +29,10 @@ export class AuthService {
     private readonly tenantRepository: Repository<Tenant>,
     @InjectRepository(RefreshToken)
     private readonly refreshRepository: Repository<RefreshToken>,
+    @InjectRepository(Permission)
+    private readonly permissionRepository: Repository<Permission>,
+    @InjectRepository(Role)
+    private readonly roleRepository: Repository<Role>,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
   ) {}
@@ -282,5 +291,140 @@ export class AuthService {
 
     const { userPwd, ...safe } = saved as any;
     return safe;
+  }
+
+  async getUserRoles(userSeq: number): Promise<string[]> {
+    try {
+      const roles = await this.roleRepository
+        .createQueryBuilder('role')
+        .innerJoin('role.userRoles', 'ur')
+        .where('ur.userSeq = :userSeq', { userSeq })
+        .andWhere('role.isActive = :isActive', { isActive: 1 })
+        .orderBy('role.roleName', 'ASC')
+        .getMany();
+
+      return roles.map(role => role.roleName);
+    } catch (error) {
+      this.logger.error(`Failed to get user roles for userSeq ${userSeq}`, error);
+      throw error;
+    }
+  }
+
+  async getUserPermissions(userSeq: number): Promise<{
+    permissions: Record<string, boolean>;
+    pagePermissions: Record<string, string[]>;
+    permissionDetails: PageNodeDto[];
+  }> {
+    try {
+      const permissions = await this.permissionRepository
+        .createQueryBuilder('permission')
+        .innerJoinAndSelect('permission.page', 'page')
+        .innerJoinAndSelect('permission.action', 'action')
+        .innerJoin('permission.rolePermissions', 'rp')
+        .innerJoin('rp.role', 'role')
+        .innerJoin('role.userRoles', 'ur')
+        .where('ur.userSeq = :userSeq', { userSeq })
+        .andWhere('permission.isActive = :isActive', { isActive: 1 })
+        .andWhere('page.isActive = :isActive', { isActive: 1 })
+        .andWhere('action.isActive = :isActive', { isActive: 1 })
+        .andWhere('role.isActive = :isActive', { isActive: 1 })
+        .orderBy('CASE WHEN page.sortOrder IS NULL THEN 1 ELSE 0 END', 'ASC')
+        .addOrderBy('page.sortOrder', 'ASC')
+        .addOrderBy('page.pageName', 'ASC')
+        .addOrderBy('action.actionName', 'ASC')
+        .getMany();
+
+      this.logger.log(`Retrieved ${permissions.length} permissions for userSeq ${userSeq}`);
+
+      const pageMap = new Map<number, any>();
+
+      permissions.forEach(permission => {
+        const { page, action } = permission;
+
+        if (!pageMap.has(page.pageId)) {
+          pageMap.set(page.pageId, {
+            pageId: page.pageId,
+            pageName: page.pageName,
+            pageDisplayName: page.displayName,
+            pagePath: page.path,
+            sortOrder: page.sortOrder ?? null,
+            parentId: page.parentId,
+            depth: 0,
+            actions: [],
+            children: [],
+          });
+        }
+
+        pageMap.get(page.pageId).actions.push({
+          permissionId: permission.permissionId,
+          actionId: action.actionId,
+          actionName: action.actionName,
+          actionDisplayName: action.displayName,
+        });
+      });
+
+      const buildTree = (parentId: number | null, depth: number = 0): PageNodeDto[] => {
+        const children = Array.from(pageMap.values())
+          .filter(page => page.parentId === parentId)
+          .sort((a, b) => {
+            if (a.sortOrder === null && b.sortOrder === null) {
+              return a.pageName.localeCompare(b.pageName);
+            }
+            if (a.sortOrder === null) return 1;
+            if (b.sortOrder === null) return -1;
+            if (a.sortOrder !== b.sortOrder) {
+              return a.sortOrder - b.sortOrder;
+            }
+            return a.pageName.localeCompare(b.pageName);
+          })
+          .map(page => ({
+            ...page,
+            depth,
+            children: buildTree(page.pageId, depth + 1),
+          }));
+
+        return children;
+      };
+
+      const permissionDetails = buildTree(null);
+
+      // 4. permissions 인덱스 생성 (빠른 조회용)
+      const permissionsIndex: Record<string, boolean> = {};
+      const pagePermissionsMap: Record<string, string[]> = {};
+
+      const traverse = (pages: PageNodeDto[], parentPath = '') => {
+        pages.forEach(page => {
+          const fullPath = parentPath 
+            ? `${parentPath}.${page.pageName}` 
+            : page.pageName;
+
+          // pagePermissions 생성
+          if (page.actions.length > 0) {
+            pagePermissionsMap[fullPath] = page.actions.map(a => a.actionName);
+
+            // permissions 인덱스 생성
+            page.actions.forEach(action => {
+              permissionsIndex[`${fullPath}.${action.actionName}`] = true;
+            });
+          }
+
+          // 자식 페이지 순회
+          if (page.children.length > 0) {
+            traverse(page.children, fullPath);
+          }
+        });
+      };
+
+      traverse(permissionDetails);
+
+      return {
+        permissions: permissionsIndex,
+        pagePermissions: pagePermissionsMap,
+        permissionDetails,
+      };
+    } catch (error) {
+      this.logger.error(`Failed to get user permissions for userSeq ${userSeq}`, error);
+      throw error;
+    }
   }
 }

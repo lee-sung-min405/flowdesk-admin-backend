@@ -299,11 +299,27 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('JWT')
   @ApiOperation({ 
-    summary: '토큰 기반 사용자 정보 조회',
-    description: '액세스 토큰에서 추출한 현재 로그인 사용자의 정보를 반환합니다.',
+    summary: '토큰 기반 사용자 정보 및 권한 조회',
+    description: `액세스 토큰에서 추출한 현재 로그인 사용자의 정보와 권한을 반환합니다.
+
+**응답 구조:**
+- user: 사용자 기본 정보
+- roles: 사용자의 역할 목록 (예: ["ADMIN", "USER_MANAGER"])
+- permissions: 빠른 권한 체크용 인덱스 (O(1) 조회)
+  * 예: { "dashboard.read": true, "users.delete": true }
+- pagePermissions: 페이지별 액션 배열 (Flat 구조)
+  * 예: { "users": ["read", "create", "update", "delete"] }
+- permissionDetails: 권한 상세 정보 (트리 구조)
+  * 페이지 계층 구조 포함
+  * 각 페이지별 액션 상세 정보
+
+**사용 사례:**
+- 프론트엔드에서 버튼/메뉴 표시 제어
+- 라우터 가드 (페이지 접근 제어)
+- 권한 기반 UI 렌더링`,
   })
   @ApiOkResponse({ 
-    description: '사용자 정보 조회 성공', 
+    description: '사용자 정보 및 권한 조회 성공', 
     type: MeResponseDto,
   })
   @ApiUnauthorizedResponse({ 
@@ -323,7 +339,20 @@ export class AuthController {
       },
     },
   })
-  async me(@Req() req: any) {
-    return { user: req.user };
+  async me(@Req() req: any): Promise<MeResponseDto> {
+    const user = req.user;
+    
+    const roles = await this.authService.getUserRoles(user.userSeq);
+    
+    const { permissions, pagePermissions, permissionDetails } = 
+      await this.authService.getUserPermissions(user.userSeq);
+    
+    return {
+      user,
+      roles,
+      permissions,
+      pagePermissions,
+      permissionDetails,
+    };
   }
 }

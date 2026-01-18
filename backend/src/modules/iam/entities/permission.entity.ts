@@ -3,6 +3,7 @@ import {
   PrimaryGeneratedColumn,
   Column,
   ManyToOne,
+  OneToMany,
   JoinColumn,
   CreateDateColumn,
   UpdateDateColumn,
@@ -10,6 +11,7 @@ import {
 } from 'typeorm';
 import { Page } from './page.entity';
 import { Action } from './action.entity';
+import { RolePermission } from './role-permission.entity';
 
 @Entity({ name: 'permissions' })
 @Index(['pageId', 'actionId'], { unique: true })
@@ -46,5 +48,8 @@ export class Permission {
   @ManyToOne(() => Action, { onDelete: 'CASCADE', onUpdate: 'CASCADE' })
   @JoinColumn({ name: 'action_id' })
   action: Action;
+  
+  @OneToMany(() => RolePermission, rolePermission => rolePermission.permission)
+  rolePermissions: RolePermission[];
 }
 

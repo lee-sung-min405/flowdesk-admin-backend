@@ -3,12 +3,15 @@ import {
   PrimaryGeneratedColumn,
   Column,
   ManyToOne,
+  OneToMany,
   JoinColumn,
   CreateDateColumn,
   UpdateDateColumn,
   Index,
 } from 'typeorm';
 import { Tenant } from '../../tenants/entities/tenant.entity';
+import { UserRole } from './user-role.entity';
+import { RolePermission } from './role-permission.entity';
 
 @Entity({ name: 'roles' })
 @Index(['tenantId', 'roleName'], { unique: true })
@@ -42,5 +45,11 @@ export class Role {
   @ManyToOne(() => Tenant, { onUpdate: 'CASCADE' })
   @JoinColumn({ name: 'tenant_id' })
   tenant: Tenant;
+
+  @OneToMany(() => UserRole, userRole => userRole.role)
+  userRoles: UserRole[];
+
+  @OneToMany(() => RolePermission, rolePermission => rolePermission.role)
+  rolePermissions: RolePermission[];
 }
 
