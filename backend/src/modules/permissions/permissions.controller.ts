@@ -1,16 +1,14 @@
-import { Controller, Get, UseGuards } from '@nestjs/common';
+import { Controller, Get } from '@nestjs/common';
 import {
   ApiTags,
   ApiOperation,
   ApiOkResponse,
   ApiInternalServerErrorResponse,
-  ApiBearerAuth,
-  ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import { PermissionsService } from './permissions.service';
 import { CatalogResponseDto } from './dto/catalog-response.dto';
 import { StandardErrorResponseDto } from '../../common/dto/error-response.dto';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RequireAuth } from '../../common/decorators/require-auth.decorator';
 
 @ApiTags('Permissions')
 @Controller('permissions')
@@ -18,8 +16,7 @@ export class PermissionsController {
   constructor(private readonly permissionsService: PermissionsService) {}
 
   @Get('catalog')
-  @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth('JWT')
+  @RequireAuth('/admin/permissions', 'read')
   @ApiOperation({
     summary: '권한 카탈로그 조회 (관리자 전용)',
     description: `
@@ -27,7 +24,7 @@ export class PermissionsController {
 
 **인증 요구사항:**
 - JWT 액세스 토큰 필수 (Authorization: Bearer <token>)
-- 인증된 사용자만 시스템의 권한 구조를 조회할 수 있습니다
+- 권한: /admin/permissions.read (권한 카탈로그 조회 권한)
 
 **특징:**
 - N+1 쿼리 방지 (총 3번의 쿼리로 모든 데이터 조회)
@@ -49,23 +46,6 @@ export class PermissionsController {
   @ApiOkResponse({
     description: '권한 카탈로그 조회 성공',
     type: CatalogResponseDto,
-  })
-  @ApiUnauthorizedResponse({
-    description: '인증 실패 (AUTH001) - JWT 토큰 없음, 만료, 또는 위조됨',
-    type: StandardErrorResponseDto,
-    schema: {
-      example: {
-        error: {
-          code: 'AUTH001',
-          message: 'Authentication required',
-          statusCode: 401,
-        },
-        meta: {
-          timestamp: '2026-01-18T12:34:56.789Z',
-          path: '/permissions/catalog',
-        },
-      },
-    },
   })
   @ApiInternalServerErrorResponse({
     description: '서버 오류 (SYS001) - 데이터베이스 연결 실패 등',

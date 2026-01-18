@@ -5,8 +5,10 @@ import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from '../../iam/entities/user.entity';
+import { Permission } from '../../iam/entities/permission.entity';
 import { SafeUser } from '../types/safe-user.type';
 import { AuthenticationException } from '../../../common/exceptions/base.exception';
+import { PermissionUtil } from '../../../common/utils/permission.util';
 
 interface JwtPayload {
   sub: number; // userSeq
@@ -23,6 +25,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     private readonly configService: ConfigService,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    @InjectRepository(Permission)
+    private readonly permissionRepository: Repository<Permission>,
   ) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
@@ -49,6 +53,9 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       );
     }
 
+    // 사용자 권한 조회
+    const permissions = await this.getUserPermissions(user.userSeq);
+
     const { userPwd, tenant, ...rest } = user as any;
     const safe: SafeUser = {
       userSeq: rest.userSeq,
@@ -63,8 +70,39 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       isActive: rest.isActive,
       regDtm: rest.regDtm,
       tokenVersion: (user as any).tokenVersion,
+      permissions, // 권한 정보 추가
     };
 
     return safe;
+  }
+
+  /**
+   * 사용자 권한 조회 (O(1) 조회를 위한 인덱스 생성)
+   */
+  private async getUserPermissions(userSeq: number): Promise<Record<string, boolean>> {
+    const permissions = await this.permissionRepository
+      .createQueryBuilder('permission')
+      .innerJoin('permission.page', 'page')
+      .innerJoin('permission.action', 'action')
+      .innerJoin('permission.rolePermissions', 'rp')
+      .innerJoin('rp.role', 'role')
+      .innerJoin('role.userRoles', 'ur')
+      .where('ur.userSeq = :userSeq', { userSeq })
+      .andWhere('permission.isActive = :isActive', { isActive: 1 })
+      .andWhere('page.isActive = :isActive', { isActive: 1 })
+      .andWhere('action.isActive = :isActive', { isActive: 1 })
+      .andWhere('role.isActive = :isActive', { isActive: 1 })
+      .select('page.path', 'pagePath')
+      .addSelect('action.actionName', 'actionName')
+      .getRawMany();
+
+    // O(1) 조회를 위한 인덱스 생성
+    const permissionIndex: Record<string, boolean> = {};
+    permissions.forEach((p) => {
+      const key = PermissionUtil.buildKey(p.pagePath, p.actionName);
+      permissionIndex[key] = true;
+    });
+
+    return permissionIndex;
   }
 }

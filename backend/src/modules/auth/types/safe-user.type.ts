@@ -11,4 +11,5 @@ export interface SafeUser {
   isActive: number;
   regDtm: Date;
   tokenVersion?: number;
+  permissions?: Record<string, boolean>; // 권한 인덱스 (O(1) 조회)
 }
