@@ -22,7 +22,7 @@ import { RefreshResponseDto } from './dto/refresh-response.dto';
 import { LogoutDto } from './dto/logout.dto';
 import { StandardErrorResponseDto } from '../../common/dto/error-response.dto';
 
-@ApiTags('인증')
+@ApiTags('Auth')
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}

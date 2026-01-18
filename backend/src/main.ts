@@ -21,7 +21,8 @@ async function bootstrap() {
         'JWT',
       )
       .addTag('health', '헬스체크 및 진단')
-      .addTag('인증', '인증 관련 API')
+      .addTag('Auth', '인증 관련 API')
+      .addTag('Permissions', '권한 관리 API (RBAC 카탈로그)')
       .setContact('flowdesk', 'https://github.com/lee-sung-min405/flowdesk-admin', '')
       .addServer(`http://localhost:${port}`)
       .addServer('https://flowdesk-admin-production.up.railway.app')
