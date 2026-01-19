@@ -13,8 +13,8 @@ import {
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { LoginResponseDto } from './dto/login-response.dto';
-import { RegisterDto } from './dto/register.dto';
-import { RegisterResponseDto } from './dto/register-response.dto';
+import { SignupDto } from './dto/signup.dto';
+import { SignupResponseDto } from './dto/signup-response.dto';
 import MeResponseDto from './dto/me-response.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RefreshRequestDto } from './dto/refresh-request.dto';
@@ -243,56 +243,70 @@ export class AuthController {
     return { ok: true };
   }
 
-  @Post('register')
+  @Post('signup')
   @ApiOperation({ 
-    summary: '회원가입',
-    description: '새로운 사용자를 등록합니다. tenantName으로 테넌트를 구분하며, 동일 테넌트 내에서 userId는 고유해야 합니다.',
+    summary: '회원가입 (회사 + 관리자 계정 생성)',
+    description: `새로운 회사(Tenant)와 관리자 계정을 동시에 생성합니다.
+
+**프로세스:**
+1. 이메일 중복 체크 (전체 시스템)
+2. 회사명 중복 체크
+3. 새 Tenant 생성
+4. 관리자 계정 생성 (즉시 활성화)
+
+**이후 단계:**
+- 로그인하여 액세스 토큰 발급 (/auth/login)
+- POST /users API로 팀원 추가 (관리자 권한 필요)`,
   })
   @ApiBody({ 
-    description: '회원가입 요청 (tenantName으로 테넌트 구분)', 
-    type: RegisterDto,
+    description: '회원가입 요청 (회사 정보 + 관리자 정보)', 
+    type: SignupDto,
   })
   @ApiOkResponse({ 
     description: '회원가입 성공',
-    type: RegisterResponseDto,
+    type: SignupResponseDto,
   })
   @ApiBadRequestResponse({
-    description: '필수 파라미터 누락 (VAL001) - tenantName이 없거나 유효하지 않은 테넌트',
+    description: '유효성 검사 실패 (VAL001)',
     type: StandardErrorResponseDto,
     schema: {
       example: {
         error: {
           code: 'VAL001',
-          message: 'Invalid tenant',
+          message: 'Validation failed',
+          details: [
+            '비밀번호는 영문, 숫자, 특수문자를 각각 최소 1개 이상 포함해야 합니다.',
+            '회사명은 최소 2자 이상이어야 합니다.'
+          ],
           statusCode: 400,
         },
         meta: {
-          timestamp: '2026-01-18T12:34:56.789Z',
-          path: '/auth/register',
+          timestamp: '2026-01-19T12:34:56.789Z',
+          path: '/auth/signup',
         },
       },
     },
   })
   @ApiConflictResponse({
-    description: '비즈니스 충돌 (BIZ001) - 해당 테넌트에 이미 동일한 userId가 존재하는 경우',
+    description: '이메일 또는 회사명 중복 (BIZ001)',
     type: StandardErrorResponseDto,
     schema: {
       example: {
         error: {
           code: 'BIZ001',
-          message: 'User already exists',
+          message: '이미 사용 중인 이메일입니다.',
           statusCode: 409,
         },
         meta: {
-          timestamp: '2026-01-18T12:34:56.789Z',
-          path: '/auth/register',
+          timestamp: '2026-01-19T12:34:56.789Z',
+          path: '/auth/signup',
         },
       },
     },
   })
   @UsePipes(new ValidationPipe({ whitelist: true }))
-  async register(@Body() dto: RegisterDto): Promise<RegisterResponseDto> {
-    return this.authService.register(dto as any);
+  async signup(@Body() dto: SignupDto): Promise<SignupResponseDto> {
+    return this.authService.signup(dto);
   }
 
   @Get('me')

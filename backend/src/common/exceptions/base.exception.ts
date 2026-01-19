@@ -108,3 +108,26 @@ export class BusinessConflictException extends BaseBusinessException {
     );
   }
 }
+
+/**
+ * 리소스 없음 오류 (404)
+ * - 요청한 리소스(사용자, 데이터 등)를 찾을 수 없음
+ * - 관리 API에서 대상 엔티티가 존재하지 않는 경우
+ * 
+ * 외부 응답: 구체적 메시지 가능
+ */
+export class ResourceNotFoundException extends BaseBusinessException {
+  constructor(
+    internalMessage: string,
+    externalMessage: string,
+    context?: ErrorContext,
+  ) {
+    super(
+      'RES001',
+      internalMessage,
+      externalMessage,
+      HttpStatus.NOT_FOUND,
+      context,
+    );
+  }
+}

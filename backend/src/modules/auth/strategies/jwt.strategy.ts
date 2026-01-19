@@ -78,6 +78,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
   /**
    * 사용자 권한 조회 (O(1) 조회를 위한 인덱스 생성)
+   * 권한 키 형식: {page_name}.{action_name} (예: users.read, roles.delete)
    */
   private async getUserPermissions(userSeq: number): Promise<Record<string, boolean>> {
     const permissions = await this.permissionRepository
@@ -92,14 +93,14 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       .andWhere('page.isActive = :isActive', { isActive: 1 })
       .andWhere('action.isActive = :isActive', { isActive: 1 })
       .andWhere('role.isActive = :isActive', { isActive: 1 })
-      .select('page.path', 'pagePath')
+      .select('page.pageName', 'pageName')
       .addSelect('action.actionName', 'actionName')
       .getRawMany();
 
     // O(1) 조회를 위한 인덱스 생성
     const permissionIndex: Record<string, boolean> = {};
     permissions.forEach((p) => {
-      const key = PermissionUtil.buildKey(p.pagePath, p.actionName);
+      const key = PermissionUtil.buildKey(p.pageName, p.actionName);
       permissionIndex[key] = true;
     });
 

@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, DataSource } from 'typeorm';
 import { User } from '../iam/entities/user.entity';
 import { Tenant } from '../tenants/entities/tenant.entity';
 import { RefreshToken } from './entities/refresh-token.entity';
@@ -17,6 +17,8 @@ import {
   BusinessConflictException,
 } from '../../common/exceptions/base.exception';
 import { PageNodeDto, ActionDetailDto } from './dto/me-response.dto';
+import { SignupDto } from './dto/signup.dto';
+import { SignupResponseDto } from './dto/signup-response.dto';
 
 @Injectable()
 export class AuthService {
@@ -35,6 +37,7 @@ export class AuthService {
     private readonly roleRepository: Repository<Role>,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
+    private readonly dataSource: DataSource,
   ) {}
 
   private toSafeUser(user: User) {
@@ -236,63 +239,6 @@ export class AuthService {
       .execute();
   }
 
-  async register(payload: {
-    tenantName: string;
-    userId: string;
-    password: string;
-    corpName: string;
-    userName: string;
-    userEmail?: string;
-    userTel?: string;
-    userHp?: string;
-  }) {
-    if (!payload.tenantName) {
-      throw new ValidationException(
-        'tenantName missing in registration request',
-        'tenantName is required',
-      );
-    }
-
-    const tenant = await this.tenantRepository.findOne({ where: { tenantName: payload.tenantName } });
-    if (!tenant) {
-      throw new ValidationException(
-        'Tenant not found during registration',
-        'Invalid tenant',
-        { tenantName: payload.tenantName },
-      );
-    }
-
-    const tenantId = tenant.tenantId;
-
-    const exists = await this.userRepository.findOne({ where: { tenantId, userId: payload.userId } });
-    if (exists) {
-      throw new BusinessConflictException(
-        `User already exists: tenantId=${tenantId}, userId=${payload.userId}`,
-        'User already exists',
-        { tenantId, userId: payload.userId },
-      );
-    }
-
-    const hashed = await bcrypt.hash(payload.password, 10);
-
-    const user = this.userRepository.create({
-      tenantId,
-      userId: payload.userId,
-      userPwd: hashed,
-      corpName: payload.corpName,
-      userName: payload.userName,
-      userEmail: payload.userEmail ?? null,
-      userTel: payload.userTel ?? null,
-      userHp: payload.userHp ?? null,
-      isActive: 1,
-    });
-
-    const saved = await this.userRepository.save(user as any);
-
-    const { userPwd, ...safe } = saved as any;
-    return safe;
-  }
-
   async getUserRoles(userSeq: number): Promise<string[]> {
     try {
       const roles = await this.roleRepository
@@ -426,5 +372,77 @@ export class AuthService {
       this.logger.error(`Failed to get user permissions for userSeq ${userSeq}`, error);
       throw error;
     }
+  }
+
+  /**
+   * 회원가입: 새 회사(Tenant) + 관리자 계정 생성
+   */
+  async signup(dto: SignupDto): Promise<SignupResponseDto> {
+    return await this.dataSource.transaction(async (manager) => {
+      
+      // 1. 이메일 중복 체크 (전체 시스템)
+      const existingUser = await manager.findOne(User, {
+        where: { userId: dto.email },
+      });
+      
+      if (existingUser) {
+        throw new BusinessConflictException(
+          `Email already exists: ${dto.email}`,
+          '이미 사용 중인 이메일입니다.',
+          { email: dto.email },
+        );
+      }
+
+      // 2. 회사명 중복 체크
+      const existingTenant = await manager.findOne(Tenant, {
+        where: { tenantName: dto.companyName },
+      });
+
+      if (existingTenant) {
+        throw new BusinessConflictException(
+          `Company name already exists: ${dto.companyName}`,
+          '이미 사용 중인 회사명입니다.',
+          { companyName: dto.companyName },
+        );
+      }
+
+      // 3. Tenant 생성
+      const tenant = await manager.save(Tenant, {
+        tenantName: dto.companyName,
+        displayName: dto.companyName,
+        isActive: 1,
+      });
+
+      // 4. 관리자 계정 생성
+      const hashedPassword = await bcrypt.hash(dto.password, 10);
+      const admin = await manager.save(User, {
+        userId: dto.email,
+        userPwd: hashedPassword,
+        tenantId: tenant.tenantId,
+        userName: dto.adminName,
+        corpName: dto.companyName,
+        userEmail: dto.email,
+        userHp: dto.phone || null,
+        userTel: null,
+        isActive: 1, // 즉시 활성화
+        tokenVersion: 0,
+      });
+
+      this.logger.log(`New tenant created: ${tenant.tenantName} (ID: ${tenant.tenantId})`);
+      this.logger.log(`Admin user created: ${admin.userId} (userSeq: ${admin.userSeq})`);
+
+      return {
+        message: '회원가입이 완료되었습니다.',
+        tenant: {
+          tenantId: tenant.tenantId,
+          tenantName: tenant.tenantName,
+        },
+        admin: {
+          userSeq: admin.userSeq,
+          userId: admin.userId,
+          userName: admin.userName,
+        },
+      };
+    });
   }
 }
