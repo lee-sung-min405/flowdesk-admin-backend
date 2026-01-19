@@ -44,6 +44,22 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       const response = exception.getResponse();
       externalMessage = typeof response === 'string' ? response : (response as any).message || exception.message;
       internalMessage = exception.message;
+      
+      if (status === 401) {
+        errorCode = 'AUTH001'; // 인증 실패
+      } else if (status === 403) {
+        errorCode = 'AUTH101'; // 권한 없음
+      } else if (status === 404) {
+        errorCode = 'NOT_FOUND'; // 리소스 없음
+      } else if (status === 400) {
+        errorCode = 'VAL001'; // 잘못된 요청
+      } else if (status === 409) {
+        errorCode = 'BIZ002'; // 충돌
+      } else if (status >= 500) {
+        errorCode = 'SYS001'; // 서버 오류
+      } else {
+        errorCode = `HTTP_${status}`; // 기타 HTTP 상태
+      }
     }
     // 예상치 못한 에러 (DB, 시스템 오류 등)
     else if (exception instanceof Error) {
