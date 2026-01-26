@@ -1,4 +1,4 @@
-import { Controller, Post, Body, UseGuards, Get, Req, UsePipes, ValidationPipe } from '@nestjs/common';
+import { Controller, Post, Body, UseGuards, Get, Req, UsePipes, ValidationPipe, HttpCode, HttpStatus } from '@nestjs/common';
 import { 
   ApiTags, 
   ApiOperation, 
@@ -9,6 +9,7 @@ import {
   ApiBadRequestResponse,
   ApiConflictResponse,
   ApiForbiddenResponse,
+  ApiNoContentResponse,
 } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
@@ -20,6 +21,7 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RefreshRequestDto } from './dto/refresh-request.dto';
 import { RefreshResponseDto } from './dto/refresh-response.dto';
 import { LogoutDto } from './dto/logout.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import { StandardErrorResponseDto } from '../../common/dto/error-response.dto';
 
 @ApiTags('Auth')
@@ -368,5 +370,75 @@ export class AuthController {
       pagePermissions,
       permissionDetails,
     };
+  }
+
+  @Post('change-password')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ 
+    summary: '비밀번호 변경 (본인)',
+    description: `로그인된 사용자가 자신의 비밀번호를 변경합니다.
+
+**처리 규칙:**
+1. 현재 비밀번호가 일치해야 합니다
+2. 새 비밀번호와 확인 비밀번호가 일치해야 합니다
+3. 새 비밀번호는 현재 비밀번호와 달라야 합니다
+4. 비밀번호는 8자 이상, 영문/숫자/특수문자 조합이어야 합니다`,
+  })
+  @ApiBody({ 
+    description: '비밀번호 변경 요청', 
+    type: ChangePasswordDto,
+  })
+  @ApiNoContentResponse({ 
+    description: '비밀번호 변경 성공',
+  })
+  @ApiBadRequestResponse({
+    description: '유효성 검사 실패 (VAL001) - 비밀번호 형식 오류, 새 비밀번호 불일치, 현재 비밀번호와 동일',
+    type: StandardErrorResponseDto,
+    schema: {
+      example: {
+        error: {
+          code: 'VAL001',
+          message: '새 비밀번호와 확인 비밀번호가 일치하지 않습니다.',
+          statusCode: 400,
+        },
+        meta: {
+          timestamp: '2026-01-26T12:34:56.789Z',
+          path: '/auth/change-password',
+        },
+      },
+    },
+  })
+  @ApiUnauthorizedResponse({ 
+    description: '인증 실패 (AUTH001) - 토큰 없음/만료/위조 또는 현재 비밀번호 불일치',
+    type: StandardErrorResponseDto,
+    schema: {
+      example: {
+        error: {
+          code: 'AUTH001',
+          message: 'Authentication required',
+          statusCode: 401,
+        },
+        meta: {
+          timestamp: '2026-01-26T12:34:56.789Z',
+          path: '/auth/change-password',
+        },
+      },
+    },
+  })
+  @UsePipes(new ValidationPipe({ whitelist: true }))
+  async changePassword(
+    @Req() req: any,
+    @Body() dto: ChangePasswordDto,
+  ): Promise<void> {
+    const { userSeq, tenantId } = req.user;
+    await this.authService.changePassword(
+      userSeq,
+      tenantId,
+      dto.currentPassword,
+      dto.newPassword,
+      dto.confirmPassword,
+    );
   }
 }

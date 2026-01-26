@@ -445,4 +445,51 @@ export class AuthService {
       };
     });
   }
+  
+  async changePassword(
+    userSeq: number,
+    tenantId: number,
+    currentPassword: string,
+    newPassword: string,
+    confirmPassword: string,
+  ): Promise<void> {
+    // 1. 새 비밀번호와 확인 비밀번호 일치 확인
+    if (newPassword !== confirmPassword) {
+      throw new ValidationException(
+        'Password confirmation mismatch',
+        '새 비밀번호와 확인 비밀번호가 일치하지 않습니다.',
+      );
+    }
+
+    // 2. 사용자 조회
+    const user = await this.userRepository.findOne({
+      where: { userSeq, tenantId },
+    });
+
+    if (!user) {
+      throw new AuthenticationException('User not found', { userSeq, tenantId });
+    }
+
+    // 3. 현재 비밀번호 확인
+    const isCurrentPasswordValid = await bcrypt.compare(currentPassword, user.userPwd);
+    if (!isCurrentPasswordValid) {
+      throw new AuthenticationException('Current password is incorrect', { userSeq });
+    }
+
+    // 4. 새 비밀번호가 기존 비밀번호와 다른지 확인
+    const isSameAsOld = await bcrypt.compare(newPassword, user.userPwd);
+    if (isSameAsOld) {
+      throw new ValidationException(
+        'New password same as current',
+        '새 비밀번호는 현재 비밀번호와 달라야 합니다.',
+      );
+    }
+
+    // 5. 새 비밀번호 해싱 및 저장
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    user.userPwd = hashedPassword;
+    await this.userRepository.save(user);
+
+    this.logger.log(`Password changed for userSeq: ${userSeq}`);
+  }
 }
