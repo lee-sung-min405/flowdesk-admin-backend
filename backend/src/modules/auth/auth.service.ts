@@ -1,11 +1,11 @@
 import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
-import { User } from '../iam/entities/user.entity';
+import { User } from '../users/entities/user.entity';
 import { Tenant } from '../tenants/entities/tenant.entity';
 import { RefreshToken } from './entities/refresh-token.entity';
-import { Permission } from '../iam/entities/permission.entity';
-import { Role } from '../iam/entities/role.entity';
+import { Permission } from '../rbac/entities/permission.entity';
+import { Role } from '../roles/entities/role.entity';
 import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
@@ -334,7 +334,6 @@ export class AuthService {
 
       const permissionDetails = buildTree(null);
 
-      // 4. permissions 인덱스 생성 (빠른 조회용)
       const permissionsIndex: Record<string, boolean> = {};
       const pagePermissionsMap: Record<string, string[]> = {};
 
@@ -344,17 +343,14 @@ export class AuthService {
             ? `${parentPath}.${page.pageName}` 
             : page.pageName;
 
-          // pagePermissions 생성
           if (page.actions.length > 0) {
             pagePermissionsMap[fullPath] = page.actions.map(a => a.actionName);
 
-            // permissions 인덱스 생성
             page.actions.forEach(action => {
               permissionsIndex[`${fullPath}.${action.actionName}`] = true;
             });
           }
 
-          // 자식 페이지 순회
           if (page.children.length > 0) {
             traverse(page.children, fullPath);
           }
@@ -374,13 +370,9 @@ export class AuthService {
     }
   }
 
-  /**
-   * 회원가입: 새 회사(Tenant) + 관리자 계정 생성
-   */
   async signup(dto: SignupDto): Promise<SignupResponseDto> {
     return await this.dataSource.transaction(async (manager) => {
-      
-      // 1. 이메일 중복 체크 (전체 시스템)
+
       const existingUser = await manager.findOne(User, {
         where: { userId: dto.email },
       });
@@ -393,7 +385,6 @@ export class AuthService {
         );
       }
 
-      // 2. 회사명 중복 체크
       const existingTenant = await manager.findOne(Tenant, {
         where: { tenantName: dto.companyName },
       });
@@ -406,14 +397,12 @@ export class AuthService {
         );
       }
 
-      // 3. Tenant 생성
       const tenant = await manager.save(Tenant, {
         tenantName: dto.companyName,
         displayName: dto.companyName,
         isActive: 1,
       });
 
-      // 4. 관리자 계정 생성
       const hashedPassword = await bcrypt.hash(dto.password, 10);
       const admin = await manager.save(User, {
         userId: dto.email,
@@ -424,7 +413,7 @@ export class AuthService {
         userEmail: dto.email,
         userHp: dto.phone || null,
         userTel: null,
-        isActive: 1, // 즉시 활성화
+        isActive: 1,
         tokenVersion: 0,
       });
 
@@ -453,7 +442,6 @@ export class AuthService {
     newPassword: string,
     confirmPassword: string,
   ): Promise<void> {
-    // 1. 새 비밀번호와 확인 비밀번호 일치 확인
     if (newPassword !== confirmPassword) {
       throw new ValidationException(
         'Password confirmation mismatch',
@@ -461,7 +449,6 @@ export class AuthService {
       );
     }
 
-    // 2. 사용자 조회
     const user = await this.userRepository.findOne({
       where: { userSeq, tenantId },
     });
@@ -469,14 +456,11 @@ export class AuthService {
     if (!user) {
       throw new AuthenticationException('User not found', { userSeq, tenantId });
     }
-
-    // 3. 현재 비밀번호 확인
     const isCurrentPasswordValid = await bcrypt.compare(currentPassword, user.userPwd);
     if (!isCurrentPasswordValid) {
       throw new AuthenticationException('Current password is incorrect', { userSeq });
     }
 
-    // 4. 새 비밀번호가 기존 비밀번호와 다른지 확인
     const isSameAsOld = await bcrypt.compare(newPassword, user.userPwd);
     if (isSameAsOld) {
       throw new ValidationException(
@@ -485,7 +469,6 @@ export class AuthService {
       );
     }
 
-    // 5. 새 비밀번호 해싱 및 저장
     const hashedPassword = await bcrypt.hash(newPassword, 10);
     user.userPwd = hashedPassword;
     await this.userRepository.save(user);

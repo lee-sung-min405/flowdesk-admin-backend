@@ -125,7 +125,7 @@ export class UsersController {
     @Param('userSeq', ParseIntPipe) userSeq: number,
   ): Promise<UserDetailDto> {
     const tenantId = request.user.tenantId;
-    return this.usersService.findOne(tenantId, userSeq);
+    return this.usersService.getUserDetailByTenantAndSeq(tenantId, userSeq);
   }
 
   @Post()

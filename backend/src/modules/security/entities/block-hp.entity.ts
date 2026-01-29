@@ -9,7 +9,7 @@ import {
   Index,
 } from 'typeorm';
 import { Tenant } from '../../tenants/entities/tenant.entity';
-import { User } from '../../iam/entities/user.entity';
+import { User } from '../../users/entities/user.entity';
 
 @Entity({ name: 'block_hp' })
 @Index(['tenantId', 'blockHp'], { unique: true })

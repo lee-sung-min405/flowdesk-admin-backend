@@ -22,9 +22,13 @@ export class PermissionsController {
   @Get('catalog')
   @RequireAuth('permissions', 'read')
   @ApiOperation({
-    summary: '권한 카탈로그 조회 (관리자 전용)',
+    summary: '권한 카탈로그 조회 (테넌트 관리자 전용)',
     description: `
+테넌트 관리자가 역할에 권한을 할당하기 위해 시스템에서 사용 가능한 권한 목록을 조회합니다.
 관리자 UI에서 권한 매트릭스를 렌더링하기 위한 전체 카탈로그를 한 번에 제공합니다.
+
+**대상 사용자:**
+- 테넌트 관리자 (자신의 테넌트 내에서 역할 생성 및 권한 할당)
 
 **인증 요구사항:**
 - JWT 액세스 토큰 필수 (Authorization: Bearer <token>)
@@ -71,7 +75,7 @@ export class PermissionsController {
         },
         meta: {
           timestamp: '2026-01-18T12:34:56.789Z',
-          path: '/permissions/catalog',
+          path: '/rbac/catalog',
         },
       },
     },

@@ -9,7 +9,7 @@ import {
   Index,
 } from 'typeorm';
 import { Role } from './role.entity';
-import { Permission } from './permission.entity';
+import { Permission } from '../../rbac/entities/permission.entity';
 
 @Entity({ name: 'role_permissions' })
 export class RolePermission {

@@ -5,10 +5,13 @@ import { AppService } from './app.service';
 import { DatabaseModule } from './database/database.module';
 import { HealthModule } from './modules/health/health.module';
 import { AuthModule } from './modules/auth/auth.module';
-import { PermissionsModule } from './modules/permissions/permissions.module';
-import { UsersModule } from './modules/iam/users.module';
+import { UsersModule } from './modules/users/users.module';
+import { RolesModule } from './modules/roles/roles.module';
+import { TenantsModule } from './modules/tenants/tenants.module';
 import { validate } from './config/validation';
 import databaseConfig from './config/configuration';
+import { SuperModule } from './modules/super/super.module';
+import { PermissionsModule } from './modules/rbac/permissions.module';
 
 @Module({
   imports: [
@@ -19,11 +22,14 @@ import databaseConfig from './config/configuration';
       validate,
       cache: true,
     }),
-  DatabaseModule,
-  HealthModule,
-  AuthModule,
-  PermissionsModule,
-  UsersModule,
+    DatabaseModule,
+    HealthModule,
+    AuthModule,
+    PermissionsModule,
+    UsersModule,
+    RolesModule,
+    TenantsModule,
+    SuperModule,
   ],
   controllers: [AppController],
   providers: [AppService],

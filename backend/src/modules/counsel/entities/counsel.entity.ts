@@ -9,7 +9,7 @@ import {
 import { Website } from '../../websites/entities/website.entity';
 import { Tenant } from '../../tenants/entities/tenant.entity';
 import { TenantStatus } from '../../tenants/entities/tenant-status.entity';
-import { User } from '../../iam/entities/user.entity';
+import { User } from '../../users/entities/user.entity';
 
 export enum DeleteState {
   Y = 'Y',

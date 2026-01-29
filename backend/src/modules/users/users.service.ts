@@ -22,9 +22,6 @@ export class UsersService {
     private readonly userRepository: Repository<User>,
   ) {}
 
-  /**
-   * 사용자 목록 조회 (페이지네이션, 검색, 필터링)
-   */
   async findAll(
     tenantId: number,
     page: number = 1,
@@ -88,14 +85,12 @@ export class UsersService {
     };
   }
 
-  /**
-   * 사용자 상세 조회
-   */
-  async findOne(tenantId: number, userSeq: number): Promise<UserDetailDto> {
-    const user = await this.userRepository.findOne({
-      where: { userSeq, tenantId },
-    });
+  async findUserByTenantAndSeq(tenantId: number, userSeq: number): Promise<User | null> {
+    return this.userRepository.findOne({ where: { userSeq, tenantId } });
+  }
 
+  async getUserByTenantAndSeq(tenantId: number, userSeq: number): Promise<User> {
+    const user = await this.findUserByTenantAndSeq(tenantId, userSeq);
     if (!user) {
       throw new ResourceNotFoundException(
         `User not found: userSeq=${userSeq}, tenantId=${tenantId}`,
@@ -103,7 +98,12 @@ export class UsersService {
         { userSeq, tenantId },
       );
     }
+    return user;
+  }
 
+  async findOne(tenantId: number, userSeq: number): Promise<UserDetailDto | null> {
+    const user = await this.findUserByTenantAndSeq(tenantId, userSeq);
+    if (!user) return null;
     return {
       userSeq: user.userSeq,
       userId: user.userId,
@@ -121,10 +121,34 @@ export class UsersService {
   }
 
   /**
-   * 사용자 생성
+   * 사용자 상세 조회 (UserDetailDto 반환, 없으면 예외)
    */
+  async getUserDetailByTenantAndSeq(tenantId: number, userSeq: number): Promise<UserDetailDto> {
+    const user = await this.findUserByTenantAndSeq(tenantId, userSeq);
+    if (!user) {
+      throw new ResourceNotFoundException(
+        `User not found: userSeq=${userSeq}, tenantId=${tenantId}`,
+        '사용자를 찾을 수 없습니다.',
+        { userSeq, tenantId },
+      );
+    }
+    return {
+      userSeq: user.userSeq,
+      userId: user.userId,
+      corpName: user.corpName,
+      userName: user.userName,
+      userEmail: user.userEmail,
+      userTel: user.userTel,
+      userHp: user.userHp,
+      isActive: user.isActive,
+      tokenVersion: user.tokenVersion,
+      regDtm: user.regDtm,
+      stopDtm: user.stopDtm,
+      tenantId: user.tenantId,
+    };
+  }
+
   async create(tenantId: number, createUserDto: CreateUserDto): Promise<UserDetailDto> {
-    // 중복 체크 (tenant_id + user_id)
     const existingUser = await this.userRepository.findOne({
       where: { tenantId, userId: createUserDto.userId },
     });
@@ -137,10 +161,8 @@ export class UsersService {
       );
     }
 
-    // 비밀번호 해싱
     const hashedPassword = await bcrypt.hash(createUserDto.password, 10);
 
-    // 사용자 생성
     const user = this.userRepository.create({
       userId: createUserDto.userId,
       userPwd: hashedPassword,
@@ -172,27 +194,13 @@ export class UsersService {
     };
   }
 
-  /**
-   * 사용자 정보 수정 (userId, password 제외)
-   */
   async update(
     tenantId: number,
     userSeq: number,
     updateUserDto: UpdateUserDto,
   ): Promise<UserDetailDto> {
-    const user = await this.userRepository.findOne({
-      where: { userSeq, tenantId },
-    });
+    const user = await this.getUserByTenantAndSeq(tenantId, userSeq);
 
-    if (!user) {
-      throw new ResourceNotFoundException(
-        `User not found: userSeq=${userSeq}, tenantId=${tenantId}`,
-        '사용자를 찾을 수 없습니다.',
-        { userSeq, tenantId },
-      );
-    }
-
-    // 업데이트
     if (updateUserDto.corpName !== undefined) user.corpName = updateUserDto.corpName;
     if (updateUserDto.userName !== undefined) user.userName = updateUserDto.userName;
     if (updateUserDto.userEmail !== undefined) user.userEmail = updateUserDto.userEmail;
@@ -217,25 +225,12 @@ export class UsersService {
     };
   }
 
-  /**
-   * 사용자 상태 변경 (활성/정지)
-   */
   async updateStatus(
     tenantId: number,
     userSeq: number,
     updateUserStatusDto: UpdateUserStatusDto,
   ): Promise<UserDetailDto> {
-    const user = await this.userRepository.findOne({
-      where: { userSeq, tenantId },
-    });
-
-    if (!user) {
-      throw new ResourceNotFoundException(
-        `User not found: userSeq=${userSeq}, tenantId=${tenantId}`,
-        '사용자를 찾을 수 없습니다.',
-        { userSeq, tenantId },
-      );
-    }
+    const user = await this.getUserByTenantAndSeq(tenantId, userSeq);
 
     user.isActive = updateUserStatusDto.isActive ? 1 : 0;
     user.stopDtm = updateUserStatusDto.isActive ? null : new Date();
@@ -258,27 +253,13 @@ export class UsersService {
     };
   }
 
-  /**
-   * 사용자 비밀번호 변경 (관리자용)
-   */
   async updatePassword(
     tenantId: number,
     userSeq: number,
     updateUserPasswordDto: UpdateUserPasswordDto,
   ): Promise<void> {
-    const user = await this.userRepository.findOne({
-      where: { userSeq, tenantId },
-    });
+    const user = await this.getUserByTenantAndSeq(tenantId, userSeq);
 
-    if (!user) {
-      throw new ResourceNotFoundException(
-        `User not found: userSeq=${userSeq}, tenantId=${tenantId}`,
-        '사용자를 찾을 수 없습니다.',
-        { userSeq, tenantId },
-      );
-    }
-
-    // 비밀번호 해싱
     const hashedPassword = await bcrypt.hash(updateUserPasswordDto.newPassword, 10);
 
     user.userPwd = hashedPassword;
@@ -286,23 +267,9 @@ export class UsersService {
     await this.userRepository.save(user);
   }
 
-  /**
-   * 토큰 무효화 (강제 로그아웃)
-   */
   async invalidateTokens(tenantId: number, userSeq: number): Promise<void> {
-    const user = await this.userRepository.findOne({
-      where: { userSeq, tenantId },
-    });
+    const user = await this.getUserByTenantAndSeq(tenantId, userSeq);
 
-    if (!user) {
-      throw new ResourceNotFoundException(
-        `User not found: userSeq=${userSeq}, tenantId=${tenantId}`,
-        '사용자를 찾을 수 없습니다.',
-        { userSeq, tenantId },
-      );
-    }
-
-    // token_version 증가
     await this.userRepository.increment({ userSeq, tenantId }, 'tokenVersion', 1);
   }
 }

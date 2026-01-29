@@ -1,5 +1,5 @@
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, Index, CreateDateColumn } from 'typeorm';
-import { User } from '../../iam/entities/user.entity';
+import { User } from '../../users/entities/user.entity';
 
 @Entity({ name: 'refresh_tokens' })
 @Index(['tokenId'], { unique: true })

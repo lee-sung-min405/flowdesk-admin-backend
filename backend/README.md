@@ -147,6 +147,19 @@ JWT 선택 이유:
 | @nestjs/swagger | OpenAPI 3.0 명세 자동 생성 |
 | swagger-ui-express | API 문서 UI 제공 (/api) |
 
+### Swagger 태그 구성
+
+| 태그 | 설명 |
+|------|------|
+| Health | 헬스체크 및 시스템 진단 |
+| Auth | 인증 관련 API (로그인, 회원가입, 토큰 관리) |
+| Users | 사용자 관리 API |
+| Roles | 역할 관리 API (역할 CRUD, 권한/사용자 할당) |
+| Tenants | 테넌트 관리 API (멀티테넌시) |
+| Permissions | 권한 카탈로그 조회 API |
+| Permissions Admin | 페이지/액션/권한 CRUD API (슈퍼 관리자 전용) |
+| Super Admin | 슈퍼 관리자 대시보드 API (시스템 통계) |
+
 ---
 
 ## 4. 프로젝트 디렉터리 구조
@@ -159,11 +172,20 @@ backend/
 │   │
 │   ├── common/                    # 전역 공통 모듈
 │   │   ├── decorators/            # 커스텀 데코레이터
-│   │   ├── dto/                   # 공통 DTO (에러 응답 등)
+│   │   │   ├── require-auth.decorator.ts      # JWT + 권한 검증 복합 데코레이터
+│   │   │   ├── require-permission.decorator.ts # 권한 메타데이터 설정
+│   │   │   └── transactional.decorator.ts     # 트랜잭션 데코레이터
+│   │   ├── dto/                   # 공통 DTO
+│   │   │   └── error-response.dto.ts          # 표준 에러 응답 형식
 │   │   ├── exceptions/            # 커스텀 예외 클래스
+│   │   │   └── base.exception.ts              # 비즈니스 예외 정의
 │   │   ├── filters/               # 전역 예외 필터
+│   │   │   └── global-exception.filter.ts     # 모든 에러 표준화
 │   │   ├── guards/                # 인증/인가 가드
+│   │   │   └── permission.guard.ts            # RBAC 권한 검증
 │   │   └── utils/                 # 유틸리티 함수
+│   │       ├── permission.util.ts             # 권한 키 생성
+│   │       └── transaction.util.ts            # 트랜잭션 유틸리티
 │   │
 │   ├── config/                    # 환경 설정
 │   │   ├── configuration.ts       # 환경 변수 로드
@@ -177,15 +199,67 @@ backend/
 │   │
 │   └── modules/                   # 도메인 모듈
 │       ├── auth/                  # 인증 모듈
-│       ├── iam/                   # 사용자 관리 모듈
-│       ├── permissions/           # 권한 관리 모듈
-│       ├── tenants/               # 테넌트 엔티티
-│       ├── health/                # 헬스체크
+│       │   ├── auth.controller.ts
+│       │   ├── auth.service.ts
+│       │   ├── auth.module.ts
+│       │   ├── dto/               # 인증 관련 DTO
+│       │   ├── entities/          # RefreshToken 엔티티
+│       │   ├── guards/            # JwtAuthGuard
+│       │   ├── strategies/        # JwtStrategy
+│       │   └── types/             # SafeUser 타입
+│       │
+│       ├── users/                 # 사용자 관리 모듈
+│       │   ├── users.controller.ts
+│       │   ├── users.service.ts
+│       │   ├── users.module.ts
+│       │   ├── dto/               # 사용자 관련 DTO
+│       │   └── entities/          # User 엔티티
+│       │
+│       ├── roles/                 # 역할 관리 모듈
+│       │   ├── roles.controller.ts
+│       │   ├── roles.service.ts
+│       │   ├── roles.module.ts
+│       │   ├── dto/               # 역할 관련 DTO
+│       │   └── entities/          # Role, UserRole, RolePermission 엔티티
+│       │
+│       ├── rbac/                  # RBAC 권한 관리 모듈
+│       │   ├── permissions.controller.ts       # 권한 카탈로그 조회
+│       │   ├── permissions-admin.controller.ts # 페이지/액션/권한 CRUD
+│       │   ├── permissions.service.ts
+│       │   ├── permissions-admin.service.ts
+│       │   ├── permissions.module.ts
+│       │   ├── dto/               # 권한 관련 DTO
+│       │   └── entities/          # Page, Action, Permission 엔티티
+│       │
+│       ├── tenants/               # 테넌트 관리 모듈
+│       │   ├── tenants.controller.ts
+│       │   ├── tenants.service.ts
+│       │   ├── tenants.module.ts
+│       │   ├── dto/               # 테넌트 관련 DTO
+│       │   └── entities/          # Tenant, TenantStatus 엔티티
+│       │
+│       ├── super/                 # 슈퍼 관리자 모듈
+│       │   ├── super.controller.ts
+│       │   ├── super.service.ts
+│       │   ├── super.module.ts
+│       │   └── dto/               # 대시보드 통계 DTO
+│       │
+│       ├── health/                # 헬스체크 모듈
+│       │   ├── health.controller.ts
+│       │   ├── health.service.ts
+│       │   └── health.module.ts
+│       │
 │       ├── boards/                # 게시판 (예정)
-│       ├── codes/                 # 공통 코드
+│       │   └── entities/
+│       ├── codes/                 # 공통 코드 (예정)
+│       │   └── entities/
 │       ├── counsel/               # 상담 (예정)
+│       │   ├── entities/
+│       │   └── services/
 │       ├── security/              # 보안 로그 (예정)
+│       │   └── entities/
 │       └── websites/              # 웹사이트 관리 (예정)
+│           └── entities/
 │
 ├── test/                          # E2E 테스트
 ├── .env.development               # 개발 환경 변수
@@ -199,21 +273,34 @@ backend/
 
 | 모듈 | 역할 | 주요 기능 |
 |------|------|----------|
-| `auth` | 인증 | 회원가입, 로그인, 토큰 발급/갱신/폐기 |
-| `iam` | 사용자 관리 | 팀원 CRUD, 비밀번호 변경, 상태 관리 |
-| `permissions` | 권한 관리 | 역할/페이지/동작 카탈로그 조회 |
-| `tenants` | 테넌트 | 회사 엔티티 정의 (회원가입 시 생성) |
+| `auth` | 인증 | 회원가입, 로그인, 토큰 발급/갱신/폐기, 비밀번호 변경 |
+| `users` | 사용자 관리 | 사용자 CRUD, 페이지네이션, 상태 관리, 비밀번호 관리 |
+| `roles` | 역할 관리 | 역할 CRUD, 권한 할당, 사용자 할당 |
+| `rbac` | RBAC 권한 관리 | 페이지/액션/권한 CRUD, 권한 카탈로그 조회 |
+| `tenants` | 테넌트 관리 | 테넌트 CRUD, 상태 변경 (슈퍼 관리자 전용) |
+| `super` | 슈퍼 관리자 | 시스템 대시보드 통계 조회 |
 | `health` | 헬스체크 | 서버 상태, DB 연결 상태 확인 |
+
+### 엔티티 위치 구조
+
+| 모듈 | 엔티티 | 설명 |
+|------|--------|------|
+| `users/entities/` | User | 사용자 정보 |
+| `roles/entities/` | Role, UserRole, RolePermission | 역할 및 매핑 정보 |
+| `rbac/entities/` | Page, Action, Permission | RBAC 권한 카탈로그 |
+| `tenants/entities/` | Tenant, TenantStatus | 테넌트 정보 |
+| `auth/entities/` | RefreshToken | 리프레시 토큰 정보 |
 
 ### common 모듈 상세
 
 | 디렉터리 | 역할 | 주요 파일 |
 |----------|------|----------|
-| `decorators/` | 커스텀 데코레이터 | `@RequireAuth`, `@RequirePermission` |
-| `exceptions/` | 커스텀 예외 | `AuthenticationException`, `AuthorizationException` |
-| `filters/` | 예외 처리 | `GlobalExceptionFilter` (모든 에러 표준화) |
+| `decorators/` | 커스텀 데코레이터 | `@RequireAuth` (JWT+권한 복합), `@RequirePermission` |
+| `exceptions/` | 커스텀 예외 | `AuthenticationException`, `AuthorizationException`, `ValidationException`, `ResourceNotFoundException`, `BusinessConflictException` |
+| `filters/` | 예외 처리 | `GlobalExceptionFilter` (모든 에러 표준화, 내부/외부 메시지 분리) |
 | `guards/` | 접근 제어 | `PermissionGuard` (RBAC 검증) |
-| `utils/` | 유틸리티 | `PermissionUtil` (권한 키 생성) |
+| `utils/` | 유틸리티 | `PermissionUtil` (권한 키 생성), `TransactionUtil` (트랜잭션 관리) |
+| `dto/` | 공통 DTO | `StandardErrorResponseDto` (에러 응답 형식) |
 
 ---
 
@@ -320,7 +407,7 @@ backend/
                       +-------------+
 ```
 
-#### 권한 구조 (전역 카탈로그)
+#### 권한 구조 (전역 카탈로그) - rbac/entities/
 
 ```
 +-------------+       +---------------+       +-------------+
@@ -334,25 +421,40 @@ backend/
                              ^
                              |
                       +---------------+
-                      |role_permissions|
+                      |role_permissions| (roles/entities/)
                       +---------------+
                       | role_id       | (PK)
                       | permission_id | (PK)
                       +---------------+
 ```
 
+#### 엔티티 파일 위치
+
+| 엔티티 | 파일 위치 |
+|--------|----------|
+| User | `modules/users/entities/user.entity.ts` |
+| Tenant, TenantStatus | `modules/tenants/entities/` |
+| Role | `modules/roles/entities/role.entity.ts` |
+| UserRole | `modules/roles/entities/user-role.entity.ts` |
+| RolePermission | `modules/roles/entities/role-permission.entity.ts` |
+| Page | `modules/rbac/entities/page.entity.ts` |
+| Action | `modules/rbac/entities/action.entity.ts` |
+| Permission | `modules/rbac/entities/permission.entity.ts` |
+| RefreshToken | `modules/auth/entities/refresh-token.entity.ts` |
+
 ### 테넌트 격리 설계
 
-| 엔티티 | 테넌트 격리 | 설명 |
-|--------|------------|------|
-| `Tenant` | - | 최상위 격리 단위 (회사) |
-| `User` | ✅ `tenant_id` | 사용자는 반드시 하나의 테넌트에 소속 |
-| `Role` | ✅ `tenant_id` | 역할은 테넌트별로 독립 관리 |
-| `UserRole` | ✅ `tenant_id` (복합 PK) | 사용자-역할 매핑도 테넌트로 격리 |
-| `Page` | ❌ 전역 | 페이지 카탈로그는 시스템 공통 |
-| `Action` | ❌ 전역 | 동작 카탈로그는 시스템 공통 |
-| `Permission` | ❌ 전역 | 페이지+동작 조합, 시스템 공통 |
-| `RolePermission` | 간접 격리 | Role이 테넌트 소속이므로 간접 격리됨 |
+| 엔티티 | 테넌트 격리 | 파일 위치 | 설명 |
+|--------|------------|----------|------|
+| `Tenant` | - | `tenants/entities/` | 최상위 격리 단위 (회사) |
+| `User` | ✅ `tenant_id` | `users/entities/` | 사용자는 반드시 하나의 테넌트에 소속 |
+| `Role` | ✅ `tenant_id` | `roles/entities/` | 역할은 테넌트별로 독립 관리 |
+| `UserRole` | ✅ `tenant_id` (복합 PK) | `roles/entities/` | 사용자-역할 매핑도 테넌트로 격리 |
+| `RolePermission` | 간접 격리 | `roles/entities/` | Role이 테넌트 소속이므로 간접 격리됨 |
+| `Page` | ❌ 전역 | `rbac/entities/` | 페이지 카탈로그는 시스템 공통 |
+| `Action` | ❌ 전역 | `rbac/entities/` | 동작 카탈로그는 시스템 공통 |
+| `Permission` | ❌ 전역 | `rbac/entities/` | 페이지+동작 조합, 시스템 공통 |
+| `RefreshToken` | ✅ `user_seq` | `auth/entities/` | 사용자별 토큰 관리 |
 
 ### 격리 방식의 의미
 
@@ -611,13 +713,15 @@ npm run start:dev
 
 ### 에러 코드 체계
 
-| 에러 코드 | HTTP 상태 | 의미 |
-|---------|---------|------|
-| `AUTH001` | 401 | 인증 실패 |
-| `AUTH101` | 403 | 권한 없음 |
-| `VAL001` | 400 | 입력 검증 실패 |
-| `RES001` | 404 | 리소스 없음 |
-| `BIZ001` | 409 | 비즈니스 충돌 |
+| 에러 코드 | HTTP 상태 | 의미 | 예시 상황 |
+|---------|---------|------|----------|
+| `AUTH001` | 401 | 인증 실패 | 토큰 없음/만료/위조, 비밀번호 불일치 |
+| `AUTH101` | 403 | 권한 없음 | 필요한 권한 미보유, 다른 테넌트 접근 |
+| `VAL001` | 400 | 입력 검증 실패 | 필수값 누락, 형식 오류 |
+| `RES001` | 404 | 리소스 없음 | 사용자/역할/테넌트 없음 |
+| `BIZ001` | 409 | 비즈니스 충돌 | 중복 ID, 이미 존재하는 데이터 |
+| `BIZ002` | 409 | 삭제 제약 | 사용 중인 역할/권한 삭제 시도 |
+| `SYS001` | 500 | 시스템 오류 | DB 연결 실패, 예상치 못한 오류 |
 
 ---
 
@@ -657,13 +761,86 @@ npm run start:dev
 
 ### 주요 경로
 
-| 경로 | 용도 |
-|------|------|
-| `POST /auth/signup` | 회원가입 (테넌트 + 관리자 생성) |
-| `POST /auth/login` | 로그인 |
-| `GET /auth/me` | 현재 사용자 정보 |
-| `GET /users` | 사용자 목록 (테넌트 내) |
-| `GET /health` | 헬스체크 |
+#### Auth (인증)
+| 경로 | 메서드 | 용도 | 인증 |
+|------|--------|------|------|
+| `/auth/signup` | POST | 회원가입 (테넌트 + 관리자 생성) | - |
+| `/auth/login` | POST | 로그인 | - |
+| `/auth/refresh` | POST | 토큰 갱신 | - |
+| `/auth/logout` | POST | 로그아웃 (리프레시 토큰 폐기) | ✅ |
+| `/auth/logout-all` | POST | 모든 기기에서 로그아웃 | ✅ |
+| `/auth/me` | GET | 현재 사용자 정보 및 권한 조회 | ✅ |
+| `/auth/change-password` | POST | 비밀번호 변경 (본인) | ✅ |
+
+#### Users (사용자 관리)
+| 경로 | 메서드 | 용도 | 권한 |
+|------|--------|------|------|
+| `/users` | GET | 사용자 목록 조회 (페이지네이션) | users.read |
+| `/users/:userSeq` | GET | 사용자 상세 조회 | users.read |
+| `/users` | POST | 사용자 생성 | users.create |
+| `/users/:userSeq` | PATCH | 사용자 정보 수정 | users.update |
+| `/users/:userSeq/status` | PATCH | 사용자 상태 변경 | users.update |
+| `/users/:userSeq/password` | PATCH | 사용자 비밀번호 변경 (관리자) | users.update |
+
+#### Roles (역할 관리)
+| 경로 | 메서드 | 용도 | 권한 |
+|------|--------|------|------|
+| `/roles` | GET | 역할 목록 조회 | roles.read |
+| `/roles/:id` | GET | 역할 상세 조회 | roles.read |
+| `/roles` | POST | 역할 생성 | roles.create |
+| `/roles/:id` | PATCH | 역할 수정 | roles.update |
+| `/roles/:id/status` | PATCH | 역할 상태 변경 | roles.update |
+| `/roles/:id` | DELETE | 역할 삭제 | roles.delete |
+| `/roles/:id/permissions` | GET | 역할 권한 목록 조회 | roles.read |
+| `/roles/:id/permissions` | PUT | 역할 권한 할당 | roles.update |
+| `/roles/:id/users` | GET | 역할 사용자 목록 조회 | roles.read |
+
+#### Permissions (권한 카탈로그)
+| 경로 | 메서드 | 용도 | 권한 |
+|------|--------|------|------|
+| `/permissions/catalog` | GET | 권한 카탈로그 조회 (매트릭스용) | permissions.read |
+
+#### Permissions Admin (페이지/액션/권한 관리 - 슈퍼 관리자)
+| 경로 | 메서드 | 용도 | 권한 |
+|------|--------|------|------|
+| `/permissions/admin/pages` | GET | 페이지 목록 조회 | super.pages.read |
+| `/permissions/admin/pages/:id` | GET | 페이지 상세 조회 | super.pages.read |
+| `/permissions/admin/pages` | POST | 페이지 생성 | super.pages.create |
+| `/permissions/admin/pages/:id` | PATCH | 페이지 수정 | super.pages.update |
+| `/permissions/admin/pages/:id/status` | PATCH | 페이지 상태 변경 | super.pages.update |
+| `/permissions/admin/pages/:id` | DELETE | 페이지 삭제 | super.pages.delete |
+| `/permissions/admin/actions` | GET | 액션 목록 조회 | super.actions.read |
+| `/permissions/admin/actions/:id` | GET | 액션 상세 조회 | super.actions.read |
+| `/permissions/admin/actions` | POST | 액션 생성 | super.actions.create |
+| `/permissions/admin/actions/:id` | PATCH | 액션 수정 | super.actions.update |
+| `/permissions/admin/actions/:id/status` | PATCH | 액션 상태 변경 | super.actions.update |
+| `/permissions/admin/actions/:id` | DELETE | 액션 삭제 | super.actions.delete |
+| `/permissions/admin/permissions` | GET | 권한 목록 조회 | super.permissions.read |
+| `/permissions/admin/permissions/:id` | GET | 권한 상세 조회 | super.permissions.read |
+| `/permissions/admin/permissions` | POST | 권한 생성 | super.permissions.create |
+| `/permissions/admin/permissions/:id` | PATCH | 권한 수정 | super.permissions.update |
+| `/permissions/admin/permissions/:id/status` | PATCH | 권한 상태 변경 | super.permissions.update |
+| `/permissions/admin/permissions/:id` | DELETE | 권한 삭제 | super.permissions.delete |
+
+#### Tenants (테넌트 관리 - 슈퍼 관리자)
+| 경로 | 메서드 | 용도 | 권한 |
+|------|--------|------|------|
+| `/tenants` | GET | 테넌트 목록 조회 | super.tenants.read |
+| `/tenants/:id` | GET | 테넌트 상세 조회 | super.tenants.read |
+| `/tenants` | POST | 테넌트 생성 | super.tenants.create |
+| `/tenants/:id` | PATCH | 테넌트 수정 | super.tenants.update |
+| `/tenants/:id/status` | PATCH | 테넌트 상태 변경 | super.tenants.update |
+| `/tenants/:id` | DELETE | 테넌트 삭제 | super.tenants.delete |
+
+#### Super Admin (슈퍼 관리자 대시보드)
+| 경로 | 메서드 | 용도 | 권한 |
+|------|--------|------|------|
+| `/super/dashboard` | GET | 시스템 통계 조회 | super.dashboard.read |
+
+#### Health (헬스체크)
+| 경로 | 메서드 | 용도 | 인증 |
+|------|--------|------|------|
+| `/health` | GET | 서버 상태 확인 | - |
 
 ### 디버깅 팁
 

@@ -11,7 +11,7 @@ import {
 } from 'typeorm';
 import { Page } from './page.entity';
 import { Action } from './action.entity';
-import { RolePermission } from './role-permission.entity';
+import { RolePermission } from '../../roles/entities/role-permission.entity';
 
 @Entity({ name: 'permissions' })
 @Index(['pageId', 'actionId'], { unique: true })

@@ -8,7 +8,7 @@ import {
 } from 'typeorm';
 import { Counsel } from './counsel.entity';
 import { TenantStatus } from '../../tenants/entities/tenant-status.entity';
-import { User } from '../../iam/entities/user.entity';
+import { User } from '../../users/entities/user.entity';
 
 @Entity({ name: 'counsel_memo_log' })
 @Index(['counselSeq', 'createdAt'])

@@ -10,7 +10,7 @@ import {
 } from 'typeorm';
 import { Board } from './board.entity';
 import { Tenant } from '../../tenants/entities/tenant.entity';
-import { User } from '../../iam/entities/user.entity';
+import { User } from '../../users/entities/user.entity';
 
 export enum DeleteState {
   Y = 'Y',

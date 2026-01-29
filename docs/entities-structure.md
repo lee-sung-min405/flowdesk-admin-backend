@@ -64,10 +64,10 @@
 
 **목적**: 시스템을 사용하는 사람(계정)을 표현한다.
 
-| 엔티티 | 책임 |
-|--------|------|
-| User | 로그인 가능한 사용자. 인증 정보와 기본 프로필 보유 |
-| RefreshToken | 토큰 갱신을 위한 리프레시 토큰 관리 |
+| 엔티티 | 책임 | 파일 위치 |
+|--------|------|----------|
+| User | 로그인 가능한 사용자. 인증 정보와 기본 프로필 보유 | `users/entities/user.entity.ts` |
+| RefreshToken | 토큰 갱신을 위한 리프레시 토큰 관리 | `auth/entities/refresh-token.entity.ts` |
 
 **설계 이유**: 사용자는 시스템의 모든 활동 주체다. 인증 정보와 비즈니스 활동을 연결하는 핵심 엔티티다.
 
@@ -77,16 +77,20 @@
 
 **목적**: 사용자가 어떤 기능에 접근할 수 있는지 제어한다.
 
-| 엔티티 | 책임 |
-|--------|------|
-| Role | 권한의 묶음. 테넌트별로 독립 관리 |
-| Permission | 페이지 + 동작의 조합. 시스템 전역 카탈로그 |
-| Page | 접근 제어 대상이 되는 페이지/기능 정의 |
-| Action | 수행 가능한 동작 유형 (조회, 생성, 수정, 삭제 등) |
-| UserRole | 사용자와 역할의 연결 (N:M 관계 해소) |
-| RolePermission | 역할과 권한의 연결 (N:M 관계 해소) |
+| 엔티티 | 책임 | 파일 위치 |
+|--------|------|----------|
+| Role | 권한의 묶음. 테넌트별로 독립 관리 | `roles/entities/role.entity.ts` |
+| UserRole | 사용자와 역할의 연결 (N:M 관계 해소) | `roles/entities/user-role.entity.ts` |
+| RolePermission | 역할과 권한의 연결 (N:M 관계 해소) | `roles/entities/role-permission.entity.ts` |
+| Page | 접근 제어 대상이 되는 페이지/기능 정의 | `rbac/entities/page.entity.ts` |
+| Action | 수행 가능한 동작 유형 (조회, 생성, 수정, 삭제 등) | `rbac/entities/action.entity.ts` |
+| Permission | 페이지 + 동작의 조합. 시스템 전역 카탈로그 | `rbac/entities/permission.entity.ts` |
 
 **설계 이유**: 역할 기반 접근 제어(RBAC)를 구현하기 위해 권한 체계를 구조화했다. 역할은 테넌트별로 다르게 정의할 수 있지만, 권한 카탈로그는 시스템 전체에서 일관되게 유지한다.
+
+**모듈 분리 원칙**:
+- `roles/`: 테넌트 종속 엔티티 (Role, UserRole, RolePermission)
+- `rbac/`: 전역 카탈로그 엔티티 (Page, Action, Permission)
 
 ---
 
@@ -236,14 +240,14 @@ User ---(N:M)---> Role ---(N:M)---> Permission
 
 ### 테넌트 종속 vs 전역
 
-| 엔티티 | 스코프 | 이유 |
-|--------|--------|------|
-| Role | 테넌트 종속 | 회사마다 다른 역할 체계 가능 |
-| UserRole | 테넌트 종속 | 사용자-역할 매핑도 회사별 |
-| Page | 전역 | 시스템 기능은 모든 회사가 동일 |
-| Action | 전역 | 동작 유형(CRUD)은 공통 |
-| Permission | 전역 | 권한 카탈로그는 시스템 공통 |
-| RolePermission | 간접 종속 | Role이 테넌트 종속이므로 |
+| 엔티티 | 스코프 | 파일 위치 | 이유 |
+|--------|--------|----------|------|
+| Role | 테넌트 종속 | `roles/entities/` | 회사마다 다른 역할 체계 가능 |
+| UserRole | 테넌트 종속 | `roles/entities/` | 사용자-역할 매핑도 회사별 |
+| RolePermission | 간접 종속 | `roles/entities/` | Role이 테넌트 종속이므로 |
+| Page | 전역 | `rbac/entities/` | 시스템 기능은 모든 회사가 동일 |
+| Action | 전역 | `rbac/entities/` | 동작 유형(CRUD)은 공통 |
+| Permission | 전역 | `rbac/entities/` | 권한 카탈로그는 시스템 공통 |
 
 ### 권한의 회사 내 유효 범위
 
@@ -322,12 +326,12 @@ CounselFieldDef (1) ─────+
 
 다음 엔티티는 테넌트와 무관하게 시스템 전체에서 공유된다:
 
-| 엔티티 | 이유 |
-|--------|------|
-| Page | 시스템 기능(메뉴)은 모든 테넌트 공통 |
-| Action | 동작 유형(CRUD)은 공통 정의 |
-| Permission | 페이지+동작 조합 카탈로그 |
-| CodeGroup, Code | 공통 코드는 시스템 차원 관리 |
+| 엔티티 | 파일 위치 | 이유 |
+|--------|----------|------|
+| Page | `rbac/entities/page.entity.ts` | 시스템 기능(메뉴)은 모든 테넌트 공통 |
+| Action | `rbac/entities/action.entity.ts` | 동작 유형(CRUD)은 공통 정의 |
+| Permission | `rbac/entities/permission.entity.ts` | 페이지+동작 조합 카탈로그 |
+| CodeGroup, Code | `codes/entities/` | 공통 코드는 시스템 차원 관리 |
 
 ### 삭제/비활성화 시 제약
 
@@ -411,6 +415,7 @@ CounselFieldDef (1) ─────+
      +------+       +------+       +-------+       +-------+       +---------+
      | User |       | Role |       | Board |       |Website|       |TenantSts|
      +------+       +------+       +-------+       +-------+       +---------+
+  [users/]       [roles/]                              |
          |               |               |               |
          +-------+-------+               v               v
                  |                   +------+       +---------+
@@ -418,27 +423,31 @@ CounselFieldDef (1) ─────+
             +----------+             +------+       +---------+
             | UserRole |                                 |
             +----------+                    +------------+------------+
-                                            |            |            |
-                 +------+               +-------+    +-------+    +--------+
-                 | Role |-------------->|RolePrm|    |CnslFld|    |CnslLog |
-                 +------+               +-------+    +-------+    +--------+
+            [roles/]                        |            |            |
+                                        +-------+    +-------+    +--------+
+                 +------+               |RolePrm|    |CnslFld|    |CnslLog |
+                 | Role |-------------->+-------+    +-------+    +--------+
+                 +------+               [roles/]
                                             |
                                             v
                                      +------------+
                                      | Permission |
                                      +------------+
+                                       [rbac/]
                                             |
                               +-------------+-------------+
                               |                           |
                            +------+                   +--------+
                            | Page |                   | Action |
                            +------+                   +--------+
+                           [rbac/]                    [rbac/]
 ```
 
 **범례**:
 - 실선: 직접 관계 (FK)
 - 화살표 방향: 1(부모) → N(자식)
 - 중간 엔티티: N:M 관계 해소용
+- `[모듈/]`: 엔티티가 위치한 모듈 폴더
 
 ---
 
@@ -451,15 +460,19 @@ backend/src/modules/
 ├── auth/
 │   └── entities/
 │       └── refresh-token.entity.ts
-├── iam/
+├── users/
 │   └── entities/
-│       ├── user.entity.ts
+│       └── user.entity.ts
+├── roles/
+│   └── entities/
 │       ├── role.entity.ts
 │       ├── user-role.entity.ts
-│       ├── action.entity.ts
-│       ├── page.entity.ts
-│       ├── permission.entity.ts
 │       └── role-permission.entity.ts
+├── rbac/
+│   └── entities/
+│       ├── page.entity.ts
+│       ├── action.entity.ts
+│       └── permission.entity.ts
 ├── tenants/
 │   └── entities/
 │       ├── tenant.entity.ts
@@ -500,26 +513,30 @@ backend/src/modules/
 
 | 속성 | 타입 | 설명 |
 |------|------|------|
-| `id` | PK, bigint | 토큰 레코드 ID (AUTO_INCREMENT) |
-| `userSeq` | int | 사용자 일련번호 |
-| `tenantId` | int | 테넌트 ID |
+| `id` | PK, int | 토큰 레코드 ID (AUTO_INCREMENT) |
+| `tokenId` | varchar(100) | 토큰 식별자 (클라이언트 전달용) |
 | `tokenHash` | varchar(255) | bcrypt 해시된 토큰 시크릿 |
+| `userSeq` | int | 사용자 일련번호 (FK → User) |
 | `expiresAt` | datetime | 만료 일시 |
+| `revoked` | tinyint | 폐기 여부 (default: 0) |
 | `createdAt` | datetime | 생성 일시 |
 
+**인덱스**:
+- UNIQUE: `[token_id]`
+
 **보안 설계**:
-- 클라이언트에 전달되는 토큰 형식: `{tokenId}.{secret}` (예: `123.a1b2c3d4...`)
-- DB 저장: `id` + bcrypt 해시된 `secret`
-- 검증 프로세스: `id`로 조회 → `bcrypt.compare()`로 시크릿 검증
+- 클라이언트에 전달되는 토큰 형식: `{tokenId}.{secret}` (예: `abc123.a1b2c3d4...`)
+- DB 저장: `tokenId` + bcrypt 해시된 `secret`
+- 검증 프로세스: `tokenId`로 조회 → `bcrypt.compare()`로 시크릿 검증
 - 토큰 회전(Rotation): 리프레시 시 기존 토큰 무효화 + 신규 발급
 
 ---
 
-### IAM 모듈
+### Users 모듈
 
 #### User (사용자)
 
-**파일**: `src/modules/iam/entities/user.entity.ts`  
+**파일**: `src/modules/users/entities/user.entity.ts`  
 **테이블**: `users`
 
 | 속성 | 타입 | 설명 |
@@ -533,10 +550,10 @@ backend/src/modules/
 | `userTel` | varchar(200) | 대표전화 (nullable) |
 | `userHp` | varchar(200) | 휴대전화 (nullable) |
 | `isActive` | tinyint | 활성 여부 (default: 1) |
+| `tokenVersion` | int | 토큰 버전 (default: 0) |
 | `regDtm` | datetime | 등록일시 |
 | `stopDtm` | datetime | 활동정지일시 (nullable) |
-| `tenantId` | int | 테넌트 ID |
-| `tokenVersion` | int | 토큰 버전 (default: 0) |
+| `tenantId` | int | 테넌트 ID (FK → Tenant) |
 
 **인덱스**:
 - UNIQUE: `[user_seq, tenant_id]`
@@ -548,9 +565,11 @@ backend/src/modules/
 
 ---
 
+### Roles 모듈
+
 #### Role (역할)
 
-**파일**: `src/modules/iam/entities/role.entity.ts`  
+**파일**: `src/modules/roles/entities/role.entity.ts`  
 **테이블**: `roles`
 
 | 속성 | 타입 | 설명 |
@@ -560,17 +579,71 @@ backend/src/modules/
 | `displayName` | varchar(100) | 표시명 (nullable) |
 | `description` | text | 설명 (nullable) |
 | `isActive` | tinyint | 활성 여부 (default: 1) |
-| `tenantId` | int | 테넌트 ID |
+| `createdAt` | datetime | 생성일시 |
+| `updatedAt` | datetime | 수정일시 |
+| `tenantId` | int | 테넌트 ID (FK → Tenant) |
 
 **인덱스**:
 - UNIQUE: `[tenant_id, role_name]`
 - UNIQUE: `[role_id, tenant_id]`
+- INDEX: `[tenant_id]`
+
+**관계**:
+- `userRoles`: OneToMany → UserRole
+- `rolePermissions`: OneToMany → RolePermission
 
 ---
 
+#### UserRole (사용자-역할 매핑)
+
+**파일**: `src/modules/roles/entities/user-role.entity.ts`  
+**테이블**: `user_roles`
+
+| 속성 | 타입 | 설명 |
+|------|------|------|
+| `userSeq` | PK, int | 사용자 일련번호 |
+| `tenantId` | PK, int | 테넌트 ID |
+| `roleId` | PK, int | 역할 ID |
+| `createdAt` | datetime | 생성일시 |
+| `updatedAt` | datetime | 수정일시 |
+
+**복합 PK**: `[userSeq, tenantId, roleId]`
+
+**인덱스**:
+- INDEX: `[user_seq, tenant_id]`
+- INDEX: `[role_id, tenant_id]`
+
+**관계**:
+- `user`: ManyToOne → User (CASCADE)
+- `role`: ManyToOne → Role (CASCADE)
+
+---
+
+#### RolePermission (역할-권한 매핑)
+
+**파일**: `src/modules/roles/entities/role-permission.entity.ts`  
+**테이블**: `role_permissions`
+
+| 속성 | 타입 | 설명 |
+|------|------|------|
+| `roleId` | PK, int | 역할 ID |
+| `permissionId` | PK, int | 권한 ID |
+| `createdAt` | datetime | 생성일시 |
+| `updatedAt` | datetime | 수정일시 |
+
+**복합 PK**: `[roleId, permissionId]`
+
+**관계**:
+- `role`: ManyToOne → Role (CASCADE)
+- `permission`: ManyToOne → Permission (CASCADE)
+
+---
+
+### RBAC 모듈
+
 #### Page (페이지)
 
-**파일**: `src/modules/iam/entities/page.entity.ts`  
+**파일**: `src/modules/rbac/entities/page.entity.ts`  
 **테이블**: `pages`
 
 | 속성 | 타입 | 설명 |
@@ -581,7 +654,10 @@ backend/src/modules/
 | `path` | varchar(255) | 라우트 경로 |
 | `displayName` | varchar(100) | 표시명 |
 | `description` | text | 설명 (nullable) |
+| `isActive` | tinyint | 활성 여부 (default: 1) |
 | `sortOrder` | tinyint | 정렬 순서 (nullable) |
+| `createdAt` | datetime | 생성일시 |
+| `updatedAt` | datetime | 수정일시 |
 
 **인덱스**:
 - UNIQUE: `[page_name]`
@@ -593,14 +669,17 @@ backend/src/modules/
 
 #### Action (액션)
 
-**파일**: `src/modules/iam/entities/action.entity.ts`  
+**파일**: `src/modules/rbac/entities/action.entity.ts`  
 **테이블**: `actions`
 
 | 속성 | 타입 | 설명 |
 |------|------|------|
 | `actionId` | PK, int | 액션 ID (AUTO_INCREMENT) |
-| `actionName` | varchar(50) | 액션명 (READ, CREATE 등) |
+| `actionName` | varchar(50) | 액션명 (read, create, update, delete 등) |
 | `displayName` | varchar(100) | 표시명 (nullable) |
+| `isActive` | tinyint | 활성 여부 (default: 1) |
+| `createdAt` | datetime | 생성일시 |
+| `updatedAt` | datetime | 수정일시 |
 
 **인덱스**:
 - UNIQUE: `[action_name]`
@@ -609,30 +688,54 @@ backend/src/modules/
 
 #### Permission (권한)
 
-**파일**: `src/modules/iam/entities/permission.entity.ts`  
+**파일**: `src/modules/rbac/entities/permission.entity.ts`  
 **테이블**: `permissions`
 
 | 속성 | 타입 | 설명 |
 |------|------|------|
 | `permissionId` | PK, int | 권한 ID (AUTO_INCREMENT) |
-| `pageId` | int | 페이지 ID |
-| `actionId` | int | 액션 ID |
+| `pageId` | int | 페이지 ID (FK → Page) |
+| `actionId` | int | 액션 ID (FK → Action) |
 | `displayName` | varchar(100) | 표시명 (nullable) |
 | `description` | text | 설명 (nullable) |
+| `isActive` | tinyint | 활성 여부 (default: 1) |
+| `createdAt` | datetime | 생성일시 |
+| `updatedAt` | datetime | 수정일시 |
 
 **인덱스**:
 - UNIQUE: `[page_id, action_id]`
+- INDEX: `[action_id]`
 
-**권한 식별**: `{pageName}.{actionName}` (예: `user.READ`, `counsel.CREATE`)
+**관계**:
+- `page`: ManyToOne → Page (CASCADE)
+- `action`: ManyToOne → Action (CASCADE)
+- `rolePermissions`: OneToMany → RolePermission
+
+**권한 식별**: `{pageName}.{actionName}` (예: `users.read`, `roles.create`)
 
 ---
 
-#### UserRole / RolePermission (연결 테이블)
+### Tenants 모듈
 
-| 테이블 | PK 구성 | 설명 |
-|--------|---------|------|
-| `user_roles` | `[userSeq, tenantId, roleId]` | 사용자-역할 매핑 |
-| `role_permissions` | `[roleId, permissionId]` | 역할-권한 매핑 |
+#### Tenant (테넌트)
+
+**파일**: `src/modules/tenants/entities/tenant.entity.ts`  
+**테이블**: `tenants`
+
+| 속성 | 타입 | 설명 |
+|------|------|------|
+| `tenantId` | PK, int | 테넌트 ID (AUTO_INCREMENT) |
+| `tenantName` | varchar(100) | 테넌트명 (로그인 시 식별자) |
+| `displayName` | varchar(100) | 표시명 (nullable) |
+| `isActive` | tinyint | 활성 여부 (default: 1) |
+| `domain` | varchar(200) | 도메인 (nullable) |
+| `createdAt` | datetime | 생성일시 |
+| `updatedAt` | datetime | 수정일시 |
+
+**인덱스**:
+- UNIQUE: `[tenant_name]`
+
+**역할**: 멀티테넌트 시스템의 최상위 격리 단위. 모든 비즈니스 데이터의 소유자.
 
 ---
 
@@ -709,20 +812,20 @@ Tenant (1) --< (N) BlockHp
 Tenant (1) --< (N) BlockIp
 Tenant (1) --< (N) BlockWord
 
-User (1) --< (N) UserRole
+User (1) --< (N) UserRole          [roles/entities/]
 User (1) --< (N) Website
 User (1) --< (N) Post
 User (1) --< (N) Counsel (emp_seq)
 User (1) --< (N) CounselMemoLog (created_by)
-User (1) --< (N) RefreshToken
+User (1) --< (N) RefreshToken      [auth/entities/]
 
-Role (1) --< (N) UserRole
-Role (1) --< (N) RolePermission
+Role (1) --< (N) UserRole          [roles/entities/]
+Role (1) --< (N) RolePermission    [roles/entities/]
 
-Page (1) --< (N) Permission
-Page (1) --< (N) Page (parent)
+Page (1) --< (N) Permission        [rbac/entities/]
+Page (1) --< (N) Page (parent)     [rbac/entities/]
 
-Action (1) --< (N) Permission
+Action (1) --< (N) Permission      [rbac/entities/]
 
 Permission (1) --< (N) RolePermission
 
@@ -741,6 +844,27 @@ Counsel (1) --< (N) CounselLog
 Counsel (1) --< (N) CounselMemoLog
 
 CounselFieldDef (1) --< (N) CounselFieldValue
+```
+
+### 모듈 간 참조 관계
+
+```
+auth/ ──────────> users/
+   │                │
+   └── RefreshToken │
+         (FK: user_seq → User)
+                    │
+roles/ <────────────┘
+   │
+   ├── Role
+   ├── UserRole ────> users/User
+   └── RolePermission ───> rbac/Permission
+                              │
+rbac/ <───────────────────────┘
+   │
+   ├── Page (self-ref)
+   ├── Action
+   └── Permission ───> Page, Action
 ```
 
 ---
@@ -792,10 +916,21 @@ CounselFieldDef (1) --< (N) CounselFieldValue
 | 모듈 | 엔티티 수 | 주요 엔티티 |
 |------|----------|------------|
 | Auth | 1 | RefreshToken |
-| IAM | 7 | User, Role, UserRole, Page, Action, Permission, RolePermission |
+| Users | 1 | User |
+| Roles | 3 | Role, UserRole, RolePermission |
+| RBAC | 3 | Page, Action, Permission |
 | Tenants | 2 | Tenant, TenantStatus |
 | Codes | 2 | CodeGroup, Code |
 | Boards | 2 | Board, Post |
 | Counsel | 5 | Counsel, CounselFieldDef, CounselFieldValue, CounselLog, CounselMemoLog |
 | Security | 3 | BlockHp, BlockIp, BlockWord |
 | Websites | 1 | Website |
+
+### 모듈별 엔티티 분류
+
+| 분류 | 모듈 | 설명 |
+|------|------|------|
+| 테넌트 종속 | Users, Roles, Tenants | 테넌트별로 격리된 데이터 |
+| 전역 카탈로그 | RBAC, Codes | 시스템 공통 마스터 데이터 |
+| 인증 전용 | Auth | 토큰 관리 |
+| 비즈니스 도메인 | Boards, Counsel, Websites, Security | 향후 개발 예정 |

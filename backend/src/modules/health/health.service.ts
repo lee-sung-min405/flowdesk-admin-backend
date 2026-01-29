@@ -26,15 +26,12 @@ export class HealthService {
       },
     };
 
-    // DB check
     try {
       if (!this.dataSource) {
         result.details.database.status = 'down';
       } else if (!this.dataSource.isInitialized) {
-        // If data source isn't initialized, try a lightweight check
         result.details.database.status = 'down';
       } else {
-        // Run a simple query
         await this.dataSource.query('SELECT 1');
         result.details.database.status = 'up';
       }
