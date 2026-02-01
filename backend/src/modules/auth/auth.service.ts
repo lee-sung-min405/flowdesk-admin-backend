@@ -16,9 +16,10 @@ import {
   ValidationException,
   BusinessConflictException,
 } from '../../common/exceptions/base.exception';
-import { PageNodeDto, ActionDetailDto } from './dto/me-response.dto';
+import { MenuTreeNodeDto } from './dto/me-response.dto';
 import { SignupDto } from './dto/signup.dto';
 import { SignupResponseDto } from './dto/signup-response.dto';
+import { PermissionUtil } from '../../common/utils/permission.util';
 
 @Injectable()
 export class AuthService {
@@ -258,14 +259,12 @@ export class AuthService {
 
   async getUserPermissions(userSeq: number): Promise<{
     permissions: Record<string, boolean>;
-    pagePermissions: Record<string, string[]>;
-    permissionDetails: PageNodeDto[];
   }> {
     try {
       const permissions = await this.permissionRepository
         .createQueryBuilder('permission')
-        .innerJoinAndSelect('permission.page', 'page')
-        .innerJoinAndSelect('permission.action', 'action')
+        .innerJoin('permission.page', 'page')
+        .innerJoin('permission.action', 'action')
         .innerJoin('permission.rolePermissions', 'rp')
         .innerJoin('rp.role', 'role')
         .innerJoin('role.userRoles', 'ur')
@@ -274,100 +273,85 @@ export class AuthService {
         .andWhere('page.isActive = :isActive', { isActive: 1 })
         .andWhere('action.isActive = :isActive', { isActive: 1 })
         .andWhere('role.isActive = :isActive', { isActive: 1 })
-        .orderBy('CASE WHEN page.sortOrder IS NULL THEN 1 ELSE 0 END', 'ASC')
-        .addOrderBy('page.sortOrder', 'ASC')
-        .addOrderBy('page.pageName', 'ASC')
-        .addOrderBy('action.actionName', 'ASC')
-        .getMany();
+        .select('page.pageName', 'pageName')
+        .addSelect('action.actionName', 'actionName')
+        .getRawMany();
 
       this.logger.log(`Retrieved ${permissions.length} permissions for userSeq ${userSeq}`);
 
-      const pageMap = new Map<number, any>();
-
-      permissions.forEach(permission => {
-        const { page, action } = permission;
-
-        if (!pageMap.has(page.pageId)) {
-          pageMap.set(page.pageId, {
-            pageId: page.pageId,
-            pageName: page.pageName,
-            pageDisplayName: page.displayName,
-            pagePath: page.path,
-            sortOrder: page.sortOrder ?? null,
-            parentId: page.parentId,
-            depth: 0,
-            actions: [],
-            children: [],
-          });
-        }
-
-        pageMap.get(page.pageId).actions.push({
-          permissionId: permission.permissionId,
-          actionId: action.actionId,
-          actionName: action.actionName,
-          actionDisplayName: action.displayName,
-        });
-      });
-
-      const buildTree = (parentId: number | null, depth: number = 0): PageNodeDto[] => {
-        const children = Array.from(pageMap.values())
-          .filter(page => page.parentId === parentId)
-          .sort((a, b) => {
-            if (a.sortOrder === null && b.sortOrder === null) {
-              return a.pageName.localeCompare(b.pageName);
-            }
-            if (a.sortOrder === null) return 1;
-            if (b.sortOrder === null) return -1;
-            if (a.sortOrder !== b.sortOrder) {
-              return a.sortOrder - b.sortOrder;
-            }
-            return a.pageName.localeCompare(b.pageName);
-          })
-          .map(page => ({
-            ...page,
-            depth,
-            children: buildTree(page.pageId, depth + 1),
-          }));
-
-        return children;
-      };
-
-      const permissionDetails = buildTree(null);
 
       const permissionsIndex: Record<string, boolean> = {};
-      const pagePermissionsMap: Record<string, string[]> = {};
-
-      const traverse = (pages: PageNodeDto[], parentPath = '') => {
-        pages.forEach(page => {
-          const fullPath = parentPath 
-            ? `${parentPath}.${page.pageName}` 
-            : page.pageName;
-
-          if (page.actions.length > 0) {
-            pagePermissionsMap[fullPath] = page.actions.map(a => a.actionName);
-
-            page.actions.forEach(action => {
-              permissionsIndex[`${fullPath}.${action.actionName}`] = true;
-            });
-          }
-
-          if (page.children.length > 0) {
-            traverse(page.children, fullPath);
-          }
-        });
-      };
-
-      traverse(permissionDetails);
+      permissions.forEach(p => {
+        const key = PermissionUtil.buildKey(p.pageName, p.actionName);
+        permissionsIndex[key] = true;
+      });
 
       return {
         permissions: permissionsIndex,
-        pagePermissions: pagePermissionsMap,
-        permissionDetails,
       };
     } catch (error) {
       this.logger.error(`Failed to get user permissions for userSeq ${userSeq}`, error);
       throw error;
     }
+  }
+
+  async getUserMenuTree(userSeq: number): Promise<MenuTreeNodeDto[]> {
+    try {
+      const { permissions } = await this.getUserPermissions(userSeq);
+
+      const pages = await this.permissionRepository
+        .createQueryBuilder('permission')
+        .innerJoin('permission.page', 'page')
+        .where('page.isActive = :isActive', { isActive: 1 })
+        .select('page.pageId', 'pageId')
+        .addSelect('page.pageName', 'pageName')
+        .addSelect('page.displayName', 'displayName')
+        .addSelect('page.path', 'path')
+        .addSelect('page.sortOrder', 'sortOrder')
+        .addSelect('page.parentId', 'parentId')
+        .distinct(true)
+        .orderBy('page.sortOrder', 'ASC')
+        .addOrderBy('page.pageName', 'ASC')
+        .getRawMany();
+
+      const accessiblePages = pages.filter(page => {
+        const permissionKey = `${page.pageName}.read`;
+        return permissions[permissionKey] === true;
+      });
+
+      this.logger.log(`Filtered ${accessiblePages.length} accessible pages for userSeq ${userSeq}`);
+
+      return this.buildMenuTree(accessiblePages);
+    } catch (error) {
+      this.logger.error(`Failed to get user menu tree for userSeq ${userSeq}`, error);
+      throw error;
+    }
+  }
+
+  private buildMenuTree(pages: any[]): MenuTreeNodeDto[] {
+    const map = new Map<number, MenuTreeNodeDto>();
+    const roots: MenuTreeNodeDto[] = [];
+
+    pages.forEach(page => {
+      map.set(page.pageId, {
+        pageName: page.pageName,
+        displayName: page.displayName,
+        path: page.path,
+        order: page.sortOrder ?? null,
+        children: []
+      });
+    });
+
+    pages.forEach(page => {
+      const node = map.get(page.pageId);
+      if (page.parentId && map.has(page.parentId)) {
+        map.get(page.parentId)!.children.push(node!);
+      } else {
+        roots.push(node!);
+      }
+    });
+
+    return roots;
   }
 
   async signup(dto: SignupDto): Promise<SignupResponseDto> {

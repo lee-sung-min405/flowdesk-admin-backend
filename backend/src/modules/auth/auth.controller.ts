@@ -333,16 +333,15 @@ export class AuthController {
 - roles: 사용자의 역할 목록 (예: ["ADMIN", "USER_MANAGER"])
 - permissions: 빠른 권한 체크용 인덱스 (O(1) 조회)
   * 예: { "dashboard.read": true, "users.delete": true }
-- pagePermissions: 페이지별 액션 배열 (Flat 구조)
-  * 예: { "users": ["read", "create", "update", "delete"] }
-- permissionDetails: 권한 상세 정보 (트리 구조)
-  * 페이지 계층 구조 포함
-  * 각 페이지별 액션 상세 정보
+- menuTree: 권한 기반 필터링된 메뉴 트리 구조
+  * 사용자가 접근 가능한 페이지만 포함
+  * 계층 구조 유지 (부모-자식 관계)
 
 **사용 사례:**
 - 프론트엔드에서 버튼/메뉴 표시 제어
 - 라우터 가드 (페이지 접근 제어)
-- 권한 기반 UI 렌더링`,
+- 권한 기반 UI 렌더링
+- 네비게이션 메뉴 생성`,
   })
   @ApiOkResponse({ 
     description: '사용자 정보 및 권한 조회 성공', 
@@ -370,16 +369,13 @@ export class AuthController {
     const { permissions, ...user } = req.user;
     
     const roles = await this.authService.getUserRoles(user.userSeq);
-    
-    const { pagePermissions, permissionDetails } = 
-      await this.authService.getUserPermissions(user.userSeq);
+    const menuTree = await this.authService.getUserMenuTree(user.userSeq);
     
     return {
       user,
       roles,
       permissions,
-      pagePermissions,
-      permissionDetails,
+      menuTree,
     };
   }
 

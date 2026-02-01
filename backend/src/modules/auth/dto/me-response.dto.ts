@@ -1,47 +1,21 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { UserDto } from './user.dto';
 
-export class ActionDetailDto {
-  @ApiProperty({ description: '권한 ID' })
-  permissionId: number;
-
-  @ApiProperty({ description: '액션 ID' })
-  actionId: number;
-
-  @ApiProperty({ description: '액션 이름 (예: read, create)' })
-  actionName: string;
-
-  @ApiProperty({ description: '액션 표시 이름 (예: 조회, 생성)' })
-  actionDisplayName: string;
-}
-
-export class PageNodeDto {
-  @ApiProperty({ description: '페이지 ID' })
-  pageId: number;
-
-  @ApiProperty({ description: '페이지 이름' })
+export class MenuTreeNodeDto {
+  @ApiProperty({ description: '페이지 이름', example: 'users' })
   pageName: string;
 
-  @ApiProperty({ description: '페이지 표시 이름' })
-  pageDisplayName: string;
+  @ApiProperty({ description: '표시 이름', example: '사용자 관리' })
+  displayName: string;
 
-  @ApiProperty({ description: '페이지 경로' })
-  pagePath: string;
+  @ApiProperty({ description: '경로', example: '/users', nullable: true })
+  path: string | null;
 
-  @ApiProperty({ description: '정렬 순서', nullable: true })
-  sortOrder: number | null;
+  @ApiProperty({ description: '정렬 순서', example: 1, nullable: true })
+  order: number | null;
 
-  @ApiProperty({ description: '부모 페이지 ID', nullable: true })
-  parentId: number | null;
-
-  @ApiProperty({ description: '트리 깊이' })
-  depth: number;
-
-  @ApiProperty({ description: '페이지의 액션 목록', type: [ActionDetailDto] })
-  actions: ActionDetailDto[];
-
-  @ApiProperty({ description: '자식 페이지 목록', type: [PageNodeDto] })
-  children: PageNodeDto[];
+  @ApiProperty({ description: '자식 메뉴', type: [MenuTreeNodeDto] })
+  children: MenuTreeNodeDto[];
 }
 
 export class MeResponseDto {
@@ -56,11 +30,12 @@ export class MeResponseDto {
   roles: string[];
 
   @ApiProperty({
-    description: '빠른 권한 체크용 인덱스 (O(1) 조회)',
+    description: '권한 체크용 인덱스 (O(1) 조회) - 메뉴/버튼 표시 제어에 사용',
     example: {
-      'dashboard.read': true,
-      'system.users.create': true,
-      'system.users.delete': true
+      'users.read': true,
+      'users.create': true,
+      'roles.read': true,
+      'roles.delete': true
     },
     type: 'object',
     additionalProperties: { type: 'boolean' }
@@ -68,21 +43,26 @@ export class MeResponseDto {
   permissions: Record<string, boolean>;
 
   @ApiProperty({
-    description: '페이지별 액션 배열 (Flat 구조)',
-    example: {
-      'dashboard': ['read'],
-      'system.users': ['read', 'create', 'update', 'delete']
-    },
-    type: 'object',
-    additionalProperties: { type: 'array', items: { type: 'string' } }
+    description: '사용자 접근 가능한 메뉴 트리 (권한 기반 필터링됨) - 사이드바 렌더링에 사용',
+    example: [
+      {
+        pageName: 'users',
+        displayName: '사용자 관리',
+        path: '/users',
+        order: 1,
+        children: []
+      },
+      {
+        pageName: 'roles',
+        displayName: '역할 관리',
+        path: '/roles',
+        order: 2,
+        children: []
+      }
+    ],
+    type: [MenuTreeNodeDto]
   })
-  pagePermissions: Record<string, string[]>;
-
-  @ApiProperty({
-    description: '권한 상세 정보 (트리 구조)',
-    type: [PageNodeDto]
-  })
-  permissionDetails: PageNodeDto[];
+  menuTree: MenuTreeNodeDto[];
 }
 
 export default MeResponseDto;
