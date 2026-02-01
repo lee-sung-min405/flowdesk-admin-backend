@@ -53,7 +53,7 @@ export class TenantsController {
     type: [TenantResponseDto],
   })
   async findAll() {
-    return this.tenantsService.findAllTenants();
+    return this.tenantsService.findTenants();
   }
 
   @Get(':id')
@@ -73,7 +73,7 @@ export class TenantsController {
     description: '테넌트를 찾을 수 없음',
   })
   async findById(@Param('id', ParseIntPipe) id: number) {
-    return this.tenantsService.findTenantById(id);
+    return this.tenantsService.getTenantById(id);
   }
 
   @Post()

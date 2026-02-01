@@ -26,7 +26,7 @@ export class RolesService {
     private readonly userRepository: Repository<User>,
   ) {}
 
-  async findAllRoles(tenantId: number): Promise<Role[]> {
+  async findRoles(tenantId: number): Promise<Role[]> {
     return this.roleRepository.find({
       where: { tenantId },
       order: { roleId: 'ASC' },
@@ -76,7 +76,7 @@ export class RolesService {
     return this.roleRepository.save(role);
   }
 
-  async update(roleId: number, tenantId: number, dto: UpdateRoleDto): Promise<Role> {
+  async updateRole(roleId: number, tenantId: number, dto: UpdateRoleDto): Promise<Role> {
     const role = await this.getRoleById(roleId, tenantId);
 
     if (dto.roleName && dto.roleName !== role.roleName) {
@@ -96,13 +96,13 @@ export class RolesService {
     return this.roleRepository.save(role);
   }
 
-  async updateStatus(roleId: number, tenantId: number, isActive: boolean): Promise<Role> {
+  async updateRoleStatus(roleId: number, tenantId: number, isActive: boolean): Promise<Role> {
     const role = await this.getRoleById(roleId, tenantId);
     role.isActive = isActive ? 1 : 0;
     return this.roleRepository.save(role);
   }
 
-  async delete(roleId: number, tenantId: number): Promise<void> {
+  async deleteRole(roleId: number, tenantId: number): Promise<void> {
     const role = await this.getRoleById(roleId, tenantId);
 
     const userRoleCount = await this.userRoleRepository.count({

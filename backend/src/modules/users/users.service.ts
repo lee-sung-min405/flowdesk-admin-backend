@@ -22,7 +22,7 @@ export class UsersService {
     private readonly userRepository: Repository<User>,
   ) {}
 
-  async findAll(
+  async findUsers(
     tenantId: number,
     page: number = 1,
     limit: number = 20,
@@ -85,12 +85,12 @@ export class UsersService {
     };
   }
 
-  async findUserByTenantAndSeq(tenantId: number, userSeq: number): Promise<User | null> {
+  async findUserById(tenantId: number, userSeq: number): Promise<User | null> {
     return this.userRepository.findOne({ where: { userSeq, tenantId } });
   }
 
-  async getUserByTenantAndSeq(tenantId: number, userSeq: number): Promise<User> {
-    const user = await this.findUserByTenantAndSeq(tenantId, userSeq);
+  async getUserById(tenantId: number, userSeq: number): Promise<User> {
+    const user = await this.findUserById(tenantId, userSeq);
     if (!user) {
       throw new ResourceNotFoundException(
         `User not found: userSeq=${userSeq}, tenantId=${tenantId}`,
@@ -101,37 +101,18 @@ export class UsersService {
     return user;
   }
 
-  async findOne(tenantId: number, userSeq: number): Promise<UserDetailDto | null> {
-    const user = await this.findUserByTenantAndSeq(tenantId, userSeq);
-    if (!user) return null;
-    return {
-      userSeq: user.userSeq,
-      userId: user.userId,
-      corpName: user.corpName,
-      userName: user.userName,
-      userEmail: user.userEmail,
-      userTel: user.userTel,
-      userHp: user.userHp,
-      isActive: user.isActive,
-      tokenVersion: user.tokenVersion,
-      regDtm: user.regDtm,
-      stopDtm: user.stopDtm,
-      tenantId: user.tenantId,
-    };
-  }
-
   /**
    * 사용자 상세 조회 (UserDetailDto 반환, 없으면 예외)
    */
-  async getUserDetailByTenantAndSeq(tenantId: number, userSeq: number): Promise<UserDetailDto> {
-    const user = await this.findUserByTenantAndSeq(tenantId, userSeq);
-    if (!user) {
-      throw new ResourceNotFoundException(
-        `User not found: userSeq=${userSeq}, tenantId=${tenantId}`,
-        '사용자를 찾을 수 없습니다.',
-        { userSeq, tenantId },
-      );
-    }
+  async getUserDetail(tenantId: number, userSeq: number): Promise<UserDetailDto> {
+    const user = await this.getUserById(tenantId, userSeq);
+    return this.toDetailDto(user);
+  }
+
+  /**
+   * Entity → UserDetailDto 매핑 헬퍼
+   */
+  private toDetailDto(user: User): UserDetailDto {
     return {
       userSeq: user.userSeq,
       userId: user.userId,
@@ -148,7 +129,7 @@ export class UsersService {
     };
   }
 
-  async create(tenantId: number, createUserDto: CreateUserDto): Promise<UserDetailDto> {
+  async createUser(tenantId: number, createUserDto: CreateUserDto): Promise<UserDetailDto> {
     const existingUser = await this.userRepository.findOne({
       where: { tenantId, userId: createUserDto.userId },
     });
@@ -178,28 +159,15 @@ export class UsersService {
 
     const savedUser = await this.userRepository.save(user);
 
-    return {
-      userSeq: savedUser.userSeq,
-      userId: savedUser.userId,
-      corpName: savedUser.corpName,
-      userName: savedUser.userName,
-      userEmail: savedUser.userEmail,
-      userTel: savedUser.userTel,
-      userHp: savedUser.userHp,
-      isActive: savedUser.isActive,
-      tokenVersion: savedUser.tokenVersion,
-      regDtm: savedUser.regDtm,
-      stopDtm: savedUser.stopDtm,
-      tenantId: savedUser.tenantId,
-    };
+    return this.toDetailDto(savedUser);
   }
 
-  async update(
+  async updateUser(
     tenantId: number,
     userSeq: number,
     updateUserDto: UpdateUserDto,
   ): Promise<UserDetailDto> {
-    const user = await this.getUserByTenantAndSeq(tenantId, userSeq);
+    const user = await this.getUserById(tenantId, userSeq);
 
     if (updateUserDto.corpName !== undefined) user.corpName = updateUserDto.corpName;
     if (updateUserDto.userName !== undefined) user.userName = updateUserDto.userName;
@@ -209,56 +177,30 @@ export class UsersService {
 
     const savedUser = await this.userRepository.save(user);
 
-    return {
-      userSeq: savedUser.userSeq,
-      userId: savedUser.userId,
-      corpName: savedUser.corpName,
-      userName: savedUser.userName,
-      userEmail: savedUser.userEmail,
-      userTel: savedUser.userTel,
-      userHp: savedUser.userHp,
-      isActive: savedUser.isActive,
-      tokenVersion: savedUser.tokenVersion,
-      regDtm: savedUser.regDtm,
-      stopDtm: savedUser.stopDtm,
-      tenantId: savedUser.tenantId,
-    };
+    return this.toDetailDto(savedUser);
   }
 
-  async updateStatus(
+  async updateUserStatus(
     tenantId: number,
     userSeq: number,
     updateUserStatusDto: UpdateUserStatusDto,
   ): Promise<UserDetailDto> {
-    const user = await this.getUserByTenantAndSeq(tenantId, userSeq);
+    const user = await this.getUserById(tenantId, userSeq);
 
     user.isActive = updateUserStatusDto.isActive ? 1 : 0;
     user.stopDtm = updateUserStatusDto.isActive ? null : new Date();
 
     const savedUser = await this.userRepository.save(user);
 
-    return {
-      userSeq: savedUser.userSeq,
-      userId: savedUser.userId,
-      corpName: savedUser.corpName,
-      userName: savedUser.userName,
-      userEmail: savedUser.userEmail,
-      userTel: savedUser.userTel,
-      userHp: savedUser.userHp,
-      isActive: savedUser.isActive,
-      tokenVersion: savedUser.tokenVersion,
-      regDtm: savedUser.regDtm,
-      stopDtm: savedUser.stopDtm,
-      tenantId: savedUser.tenantId,
-    };
+    return this.toDetailDto(savedUser);
   }
 
-  async updatePassword(
+  async updateUserPassword(
     tenantId: number,
     userSeq: number,
     updateUserPasswordDto: UpdateUserPasswordDto,
   ): Promise<void> {
-    const user = await this.getUserByTenantAndSeq(tenantId, userSeq);
+    const user = await this.getUserById(tenantId, userSeq);
 
     const hashedPassword = await bcrypt.hash(updateUserPasswordDto.newPassword, 10);
 
@@ -267,8 +209,8 @@ export class UsersService {
     await this.userRepository.save(user);
   }
 
-  async invalidateTokens(tenantId: number, userSeq: number): Promise<void> {
-    const user = await this.getUserByTenantAndSeq(tenantId, userSeq);
+  async invalidateUserTokens(tenantId: number, userSeq: number): Promise<void> {
+    const user = await this.getUserById(tenantId, userSeq);
 
     await this.userRepository.increment({ userSeq, tenantId }, 'tokenVersion', 1);
   }

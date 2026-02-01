@@ -21,17 +21,17 @@ async function bootstrap() {
         'JWT',
       )
       // === 시스템 ===
-      .addTag('Health', '🏥 헬스체크 및 시스템 진단')
+      .addTag('Health', '헬스체크 및 시스템 진단')
       // === 인증 ===
-      .addTag('Auth', '🔐 인증 관련 API (로그인, 회원가입, 토큰 관리)')
+      .addTag('Auth', '인증 관련 API (로그인, 회원가입, 토큰 관리)')
       // === 테넌트 관리자용 ===
-      .addTag('Users', '👤 사용자 관리 API (테넌트 관리자)')
-      .addTag('Roles', '👥 역할 관리 API (역할 CRUD, 권한/사용자 할당)')
-      .addTag('Permissions', '📋 권한 카탈로그 조회 API (테넌트 관리자)')
+      .addTag('Users', '사용자 관리 API (테넌트 관리자)')
+      .addTag('Roles', '역할 관리 API (역할 CRUD, 권한/사용자 할당)')
+      .addTag('Permissions', '권한 카탈로그 조회 API (테넌트 관리자)')
       // === 슈퍼 관리자 전용 ===
-      .addTag('Super Admin', '👑 슈퍼 관리자 대시보드 API (시스템 통계)')
-      .addTag('Tenants (슈퍼 관리자 전용)', '🏢 테넌트 관리 API (멀티테넌시)')
-      .addTag('Permissions Admin (슈퍼 관리자 전용)', '⚙️ 페이지/액션/권한 CRUD API')
+      .addTag('Super Admin (슈퍼 관리자 전용)', '슈퍼 관리자 대시보드 API (시스템 통계)')
+      .addTag('Tenants (슈퍼 관리자 전용)', '테넌트 관리 API (멀티테넌시)')
+      .addTag('Permissions Admin (슈퍼 관리자 전용)', '페이지/액션/권한 CRUD API')
       .setContact('flowdesk', 'https://github.com/lee-sung-min405/flowdesk-admin', '')
       .addServer(`http://localhost:${port}`)
       .addServer('https://flowdesk-admin-production.up.railway.app')

@@ -12,7 +12,7 @@ import { RequireAuth } from '../../common/decorators/require-auth.decorator';
 import { StandardErrorResponseDto } from '../../common/dto/error-response.dto';
 import { DashboardStatsResponseDto } from './dto/dashboard-response.dto';
 
-@ApiTags('Super Admin')
+@ApiTags('Super Admin (슈퍼 관리자 전용)')
 @ApiBearerAuth('JWT')
 @ApiUnauthorizedResponse({
   description: '인증 실패 (AUTH001) - 토큰 없음/만료/위조',

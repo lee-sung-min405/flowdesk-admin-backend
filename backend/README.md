@@ -155,10 +155,10 @@ JWT 선택 이유:
 | Auth | 인증 관련 API (로그인, 회원가입, 토큰 관리) |
 | Users | 사용자 관리 API |
 | Roles | 역할 관리 API (역할 CRUD, 권한/사용자 할당) |
-| Tenants | 테넌트 관리 API (멀티테넌시) |
+| Tenants | 테넌트 관리 API (슈퍼 관리자 전용, 멀티테넌시) |
 | Permissions | 권한 카탈로그 조회 API |
 | Permissions Admin | 페이지/액션/권한 CRUD API (슈퍼 관리자 전용) |
-| Super Admin | 슈퍼 관리자 대시보드 API (시스템 통계) |
+| Super Admin | 슈퍼 관리자 대시보드 API (슈퍼 관리자 전용, 시스템 통계) |
 
 ---
 
@@ -683,7 +683,7 @@ npm run start:dev
 
 ```
 ❌ 잘못된 예: 권한 검증 없이 데이터 수정 API 노출
-✅ 올바른 예: @RequireAuth('users.update') 데코레이터 적용
+✅ 올바른 예: @RequireAuth('users', 'update') 데코레이터 적용
 ```
 
 위반 시 문제:
@@ -781,6 +781,7 @@ npm run start:dev
 | `/users/:userSeq` | PATCH | 사용자 정보 수정 | users.update |
 | `/users/:userSeq/status` | PATCH | 사용자 상태 변경 | users.update |
 | `/users/:userSeq/password` | PATCH | 사용자 비밀번호 변경 (관리자) | users.update |
+| `/users/:userSeq/invalidate-tokens` | POST | 토큰 무효화 (강제 로그아웃) | users.update |
 
 #### Roles (역할 관리)
 | 경로 | 메서드 | 용도 | 권한 |
@@ -794,13 +795,15 @@ npm run start:dev
 | `/roles/:id/permissions` | GET | 역할 권한 목록 조회 | roles.read |
 | `/roles/:id/permissions` | PUT | 역할 권한 할당 | roles.update |
 | `/roles/:id/users` | GET | 역할 사용자 목록 조회 | roles.read |
+| `/roles/users/:userSeq/assign` | POST | 사용자에게 역할 배정 | roles.update |
+| `/roles/users/:userSeq/unassign` | POST | 사용자에게서 역할 해제 | roles.update |
 
 #### Permissions (권한 카탈로그)
 | 경로 | 메서드 | 용도 | 권한 |
 |------|--------|------|------|
 | `/permissions/catalog` | GET | 권한 카탈로그 조회 (매트릭스용) | permissions.read |
 
-#### Permissions Admin (페이지/액션/권한 관리 - 슈퍼 관리자)
+#### Permissions Admin (페이지/액션/권한 관리 - 슈퍼 관리자 전용)
 | 경로 | 메서드 | 용도 | 권한 |
 |------|--------|------|------|
 | `/permissions/admin/pages` | GET | 페이지 목록 조회 | super.pages.read |
@@ -822,7 +825,7 @@ npm run start:dev
 | `/permissions/admin/permissions/:id/status` | PATCH | 권한 상태 변경 | super.permissions.update |
 | `/permissions/admin/permissions/:id` | DELETE | 권한 삭제 | super.permissions.delete |
 
-#### Tenants (테넌트 관리 - 슈퍼 관리자)
+#### Tenants (테넌트 관리 - 슈퍼 관리자 전용)
 | 경로 | 메서드 | 용도 | 권한 |
 |------|--------|------|------|
 | `/tenants` | GET | 테넌트 목록 조회 | super.tenants.read |
@@ -832,7 +835,7 @@ npm run start:dev
 | `/tenants/:id/status` | PATCH | 테넌트 상태 변경 | super.tenants.update |
 | `/tenants/:id` | DELETE | 테넌트 삭제 | super.tenants.delete |
 
-#### Super Admin (슈퍼 관리자 대시보드)
+#### Super Admin (슈퍼 관리자 전용 - 대시보드)
 | 경로 | 메서드 | 용도 | 권한 |
 |------|--------|------|------|
 | `/super/dashboard` | GET | 시스템 통계 조회 | super.dashboard.read |

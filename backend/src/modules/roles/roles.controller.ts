@@ -63,7 +63,7 @@ export class RolesController {
   })
   async findAll(@Req() request: AuthenticatedRequest) {
     const tenantId = request.user.tenantId;
-    return this.rolesService.findAllRoles(tenantId);
+    return this.rolesService.findRoles(tenantId);
   }
 
   @Get(':id')
@@ -83,7 +83,7 @@ export class RolesController {
     @Req() request: AuthenticatedRequest,
     @Param('id', ParseIntPipe) id: number
   ) {
-    return this.rolesService.findRoleById(id, request.user.tenantId);
+    return this.rolesService.getRoleById(id, request.user.tenantId);
   }
 
   @Post()
@@ -120,7 +120,7 @@ export class RolesController {
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateRoleDto,
   ) {
-    return this.rolesService.update(id, request.user.tenantId, dto);
+    return this.rolesService.updateRole(id, request.user.tenantId, dto);
   }
 
   @Patch(':id/status')
@@ -137,7 +137,7 @@ export class RolesController {
     @Param('id', ParseIntPipe) id: number,
     @Body('isActive') isActive: boolean,
   ) {
-    return this.rolesService.updateStatus(id, request.user.tenantId, isActive);
+    return this.rolesService.updateRoleStatus(id, request.user.tenantId, isActive);
   }
 
   @Delete(':id')
@@ -157,7 +157,7 @@ export class RolesController {
     @Req() request: AuthenticatedRequest,
     @Param('id', ParseIntPipe) id: number
   ) {
-    await this.rolesService.delete(id, request.user.tenantId);
+    await this.rolesService.deleteRole(id, request.user.tenantId);
   }
 
   // =====================

@@ -91,10 +91,10 @@ export class UsersController {
     @Query('order') order?: 'ASC' | 'DESC',
   ): Promise<ListResponseDto<UserListItemDto>> {
     const tenantId = request.user.tenantId;
-    return this.usersService.findAll(tenantId, page, limit, q, isActive, sort, order);
+    return this.usersService.findUsers(tenantId, page, limit, q, isActive, sort, order);
   }
 
-  @Get(':userSeq')
+  @Get(':id')
   @RequireAuth('users', 'read')
   @ApiOperation({
     summary: '사용자 상세 조회',
@@ -122,10 +122,10 @@ export class UsersController {
   })
   async findOne(
     @Req() request: AuthenticatedRequest,
-    @Param('userSeq', ParseIntPipe) userSeq: number,
+    @Param('id', ParseIntPipe) id: number,
   ): Promise<UserDetailDto> {
     const tenantId = request.user.tenantId;
-    return this.usersService.getUserDetailByTenantAndSeq(tenantId, userSeq);
+    return this.usersService.getUserDetail(tenantId, id);
   }
 
   @Post()
@@ -165,10 +165,10 @@ export class UsersController {
     @Body() createUserDto: CreateUserDto,
   ): Promise<UserDetailDto> {
     const tenantId = request.user.tenantId;
-    return this.usersService.create(tenantId, createUserDto);
+    return this.usersService.createUser(tenantId, createUserDto);
   }
 
-  @Patch(':userSeq')
+  @Patch(':id')
   @RequireAuth('users', 'update')
   @ApiOperation({
     summary: '사용자 정보 수정',
@@ -202,14 +202,14 @@ export class UsersController {
   })
   async update(
     @Req() request: AuthenticatedRequest,
-    @Param('userSeq', ParseIntPipe) userSeq: number,
+    @Param('id', ParseIntPipe) id: number,
     @Body() updateUserDto: UpdateUserDto,
   ): Promise<UserDetailDto> {
     const tenantId = request.user.tenantId;
-    return this.usersService.update(tenantId, userSeq, updateUserDto);
+    return this.usersService.updateUser(tenantId, id, updateUserDto);
   }
 
-  @Patch(':userSeq/status')
+  @Patch(':id/status')
   @RequireAuth('users', 'update')
   @ApiOperation({
     summary: '사용자 상태 변경 (활성/정지)',
@@ -245,14 +245,14 @@ export class UsersController {
   })
   async updateStatus(
     @Req() request: AuthenticatedRequest,
-    @Param('userSeq', ParseIntPipe) userSeq: number,
+    @Param('id', ParseIntPipe) id: number,
     @Body() updateUserStatusDto: UpdateUserStatusDto,
   ): Promise<UserDetailDto> {
     const tenantId = request.user.tenantId;
-    return this.usersService.updateStatus(tenantId, userSeq, updateUserStatusDto);
+    return this.usersService.updateUserStatus(tenantId, id, updateUserStatusDto);
   }
 
-  @Patch(':userSeq/password')
+  @Patch(':id/password')
   @RequireAuth('users', 'update')
   @ApiOperation({
     summary: '사용자 비밀번호 변경 (관리자용)',
@@ -285,14 +285,14 @@ export class UsersController {
   })
   async updatePassword(
     @Req() request: AuthenticatedRequest,
-    @Param('userSeq', ParseIntPipe) userSeq: number,
+    @Param('id', ParseIntPipe) id: number,
     @Body() updateUserPasswordDto: UpdateUserPasswordDto,
   ): Promise<void> {
     const tenantId = request.user.tenantId;
-    return this.usersService.updatePassword(tenantId, userSeq, updateUserPasswordDto);
+    return this.usersService.updateUserPassword(tenantId, id, updateUserPasswordDto);
   }
 
-  @Post(':userSeq/invalidate-tokens')
+  @Post(':id/invalidate-tokens')
   @RequireAuth('users', 'update')
   @ApiOperation({
     summary: '토큰 무효화 (강제 로그아웃)',
@@ -323,9 +323,9 @@ export class UsersController {
   })
   async invalidateTokens(
     @Req() request: AuthenticatedRequest,
-    @Param('userSeq', ParseIntPipe) userSeq: number,
+    @Param('id', ParseIntPipe) id: number,
   ): Promise<void> {
     const tenantId = request.user.tenantId;
-    return this.usersService.invalidateTokens(tenantId, userSeq);
+    return this.usersService.invalidateUserTokens(tenantId, id);
   }
 }

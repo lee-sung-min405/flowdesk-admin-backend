@@ -20,7 +20,7 @@ export class TenantsService {
     private readonly userRepository: Repository<User>,
   ) {}
 
-  async findAllTenants(): Promise<Tenant[]> {
+  async findTenants(): Promise<Tenant[]> {
     return this.tenantRepository.find({
       order: { tenantId: 'ASC' },
     });
