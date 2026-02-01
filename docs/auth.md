@@ -185,6 +185,51 @@
 
 ---
 
+## 8. Request ID (요청 추적)
+
+### 목적
+
+분산 환경에서 특정 요청을 추적하고 디버깅 효율성을 향상시킨다.
+
+### Request ID 생성
+
+- 모든 요청에 고유한 UUID 기반 Request ID가 자동 부여된다
+- 클라이언트가 `X-Request-ID` 헤더를 전송하면 해당 ID를 재사용한다
+- RequestIdMiddleware에서 전역 처리된다
+
+### Request ID 포함 위치
+
+| 위치 | 포함 방식 |
+|------|----------|
+| 서버 로그 | 모든 로그 항목에 `requestId` 필드 포함 |
+| 에러 응답 | `meta.requestId` 필드로 클라이언트에 전달 |
+| 응답 헤더 | `X-Request-ID` 헤더로 반환 |
+
+### 에러 응답 형식 (Request ID 포함)
+
+```json
+{
+  "error": {
+    "code": "AUTH001",
+    "message": "Authentication required",
+    "statusCode": 401
+  },
+  "meta": {
+    "requestId": "550e8400-e29b-41d4-a716-446655440000",
+    "timestamp": "2026-02-01T12:34:56.789Z",
+    "path": "/api/users"
+  }
+}
+```
+
+### 활용 시나리오
+
+- 사용자가 에러를 보고할 때 requestId를 함께 전달하면 서버 로그에서 정확한 요청을 추적 가능
+- 동일 사용자의 여러 요청을 구분하여 디버깅 가능
+- 분산 환경에서 여러 서버의 로그를 requestId로 연결 가능
+
+---
+
 ## 인증 흐름 요약
 
 ```mermaid
