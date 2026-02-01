@@ -367,11 +367,11 @@ export class AuthController {
     },
   })
   async me(@Req() req: any): Promise<MeResponseDto> {
-    const user = req.user;
+    const { permissions, ...user } = req.user;
     
     const roles = await this.authService.getUserRoles(user.userSeq);
     
-    const { permissions, pagePermissions, permissionDetails } = 
+    const { pagePermissions, permissionDetails } = 
       await this.authService.getUserPermissions(user.userSeq);
     
     return {
