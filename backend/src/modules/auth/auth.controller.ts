@@ -55,6 +55,7 @@ export class AuthController {
           statusCode: 400,
         },
         meta: {
+          requestId: 'a1b2c3d4-e5f6-7890-1234-567890abcdef',
           timestamp: '2026-01-18T12:34:56.789Z',
           path: '/auth/login',
         },
@@ -72,6 +73,7 @@ export class AuthController {
           statusCode: 401,
         },
         meta: {
+          requestId: 'a1b2c3d4-e5f6-7890-1234-567890abcdef',
           timestamp: '2026-01-18T12:34:56.789Z',
           path: '/auth/login',
         },
@@ -107,6 +109,7 @@ export class AuthController {
           statusCode: 400,
         },
         meta: {
+          requestId: 'a1b2c3d4-e5f6-7890-1234-567890abcdef',
           timestamp: '2026-01-18T12:34:56.789Z',
           path: '/auth/refresh',
         },
@@ -124,6 +127,7 @@ export class AuthController {
           statusCode: 401,
         },
         meta: {
+          requestId: 'a1b2c3d4-e5f6-7890-1234-567890abcdef',
           timestamp: '2026-01-18T12:34:56.789Z',
           path: '/auth/refresh',
         },
@@ -162,6 +166,7 @@ export class AuthController {
           statusCode: 401,
         },
         meta: {
+          requestId: 'a1b2c3d4-e5f6-7890-1234-567890abcdef',
           timestamp: '2026-01-18T12:34:56.789Z',
           path: '/auth/logout',
         },
@@ -179,6 +184,7 @@ export class AuthController {
           statusCode: 403,
         },
         meta: {
+          requestId: 'a1b2c3d4-e5f6-7890-1234-567890abcdef',
           timestamp: '2026-01-18T12:34:56.789Z',
           path: '/auth/logout',
         },
@@ -215,6 +221,7 @@ export class AuthController {
           statusCode: 401,
         },
         meta: {
+          requestId: 'a1b2c3d4-e5f6-7890-1234-567890abcdef',
           timestamp: '2026-01-18T12:34:56.789Z',
           path: '/auth/logout-all',
         },
@@ -232,6 +239,7 @@ export class AuthController {
           statusCode: 403,
         },
         meta: {
+          requestId: 'a1b2c3d4-e5f6-7890-1234-567890abcdef',
           timestamp: '2026-01-18T12:34:56.789Z',
           path: '/auth/logout-all',
         },
@@ -284,6 +292,7 @@ export class AuthController {
           statusCode: 400,
         },
         meta: {
+          requestId: 'a1b2c3d4-e5f6-7890-1234-567890abcdef',
           timestamp: '2026-01-19T12:34:56.789Z',
           path: '/auth/signup',
         },
@@ -301,6 +310,7 @@ export class AuthController {
           statusCode: 409,
         },
         meta: {
+          requestId: 'a1b2c3d4-e5f6-7890-1234-567890abcdef',
           timestamp: '2026-01-19T12:34:56.789Z',
           path: '/auth/signup',
         },
@@ -349,6 +359,7 @@ export class AuthController {
           statusCode: 401,
         },
         meta: {
+          requestId: 'a1b2c3d4-e5f6-7890-1234-567890abcdef',
           timestamp: '2026-01-18T12:34:56.789Z',
           path: '/auth/me',
         },
@@ -404,6 +415,7 @@ export class AuthController {
           statusCode: 400,
         },
         meta: {
+          requestId: 'a1b2c3d4-e5f6-7890-1234-567890abcdef',
           timestamp: '2026-01-26T12:34:56.789Z',
           path: '/auth/change-password',
         },
@@ -421,6 +433,7 @@ export class AuthController {
           statusCode: 401,
         },
         meta: {
+          requestId: 'a1b2c3d4-e5f6-7890-1234-567890abcdef',
           timestamp: '2026-01-26T12:34:56.789Z',
           path: '/auth/change-password',
         },

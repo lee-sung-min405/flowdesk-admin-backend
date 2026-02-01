@@ -69,6 +69,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
 
     // 내부 로그 (상세 정보 - Datadog/ELK 등으로 전송)
     const logData = {
+      requestId: (request as any).requestId || 'unknown',
       timestamp: new Date().toISOString(),
       errorCode,
       statusCode: status,
@@ -99,6 +100,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
         statusCode: status,
       },
       meta: {
+        requestId: (request as any).requestId || 'unknown',
         timestamp: new Date().toISOString(),
         path: request.url,
       },

@@ -25,6 +25,12 @@ export class ErrorResponseDto {
 
 export class ErrorMetaDto {
   @ApiProperty({
+    description: '요청 추적 ID (Request ID / Correlation ID)',
+    example: 'a1b2c3d4-e5f6-7890-1234-567890abcdef',
+  })
+  requestId: string;
+
+  @ApiProperty({
     description: '에러 발생 시각 (ISO 8601)',
     example: '2026-01-18T12:34:56.789Z',
   })

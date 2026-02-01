@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
@@ -14,6 +14,7 @@ import { validate } from './config/validation';
 import databaseConfig from './config/configuration';
 import { SuperModule } from './modules/super/super.module';
 import { PermissionsModule } from './modules/rbac/permissions.module';
+import { RequestIdMiddleware } from './common/middleware/request-id.middleware';
 
 @Module({
   imports: [
@@ -49,4 +50,9 @@ import { PermissionsModule } from './modules/rbac/permissions.module';
     },
   ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    // Request ID를 모든 라우트에 적용
+    consumer.apply(RequestIdMiddleware).forRoutes('*');
+  }
+}
