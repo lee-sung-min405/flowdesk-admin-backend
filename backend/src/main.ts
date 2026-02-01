@@ -1,4 +1,5 @@
 import { NestFactory } from '@nestjs/core';
+import { ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
@@ -12,6 +13,18 @@ async function bootstrap() {
 
   // Register global exception filter
   app.useGlobalFilters(new GlobalExceptionFilter());
+
+  // Register global validation pipe
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true, // DTO에 정의되지 않은 속성 제거
+      forbidNonWhitelisted: true, // DTO에 없는 속성 전송 시 400 에러
+      transform: true, // 요청 데이터를 DTO 인스턴스로 자동 변환
+      transformOptions: {
+        enableImplicitConversion: true, // query/param의 숫자/boolean 자동 변환
+      },
+    }),
+  );
 
   // Only enable Swagger in non-production environments
   if (process.env.NODE_ENV !== 'production') {

@@ -1,4 +1,4 @@
-import { Controller, Post, Body, UseGuards, Get, Req, UsePipes, ValidationPipe, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Post, Body, UseGuards, Get, Req, HttpCode, HttpStatus } from '@nestjs/common';
 import { 
   ApiTags, 
   ApiOperation, 
@@ -78,7 +78,6 @@ export class AuthController {
       },
     },
   })
-  @UsePipes(new ValidationPipe({ whitelist: true }))
   async login(@Body() dto: LoginDto): Promise<LoginResponseDto> {
     return this.authService.login(dto as any);
   }
@@ -131,7 +130,6 @@ export class AuthController {
       },
     },
   })
-  @UsePipes(new ValidationPipe({ whitelist: true }))
   async refresh(@Body() dto: RefreshRequestDto) {
     return this.authService.refresh(dto.refreshToken);
   }
@@ -187,7 +185,6 @@ export class AuthController {
       },
     },
   })
-  @UsePipes(new ValidationPipe({ whitelist: true }))
   async logout(@Req() req: any, @Body() dto: LogoutDto) {
     const userSeq = req.user?.userSeq;
     await this.authService.revokeRefreshToken(dto.refreshToken, userSeq);
@@ -310,7 +307,6 @@ export class AuthController {
       },
     },
   })
-  @UsePipes(new ValidationPipe({ whitelist: true }))
   async signup(@Body() dto: SignupDto): Promise<SignupResponseDto> {
     return this.authService.signup(dto);
   }
@@ -431,7 +427,6 @@ export class AuthController {
       },
     },
   })
-  @UsePipes(new ValidationPipe({ whitelist: true }))
   async changePassword(
     @Req() req: any,
     @Body() dto: ChangePasswordDto,
