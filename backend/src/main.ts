@@ -6,6 +6,10 @@ import { GlobalExceptionFilter } from './common/filters/global-exception.filter'
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
+  // Trust proxy for accurate IP detection in production (Railway, Nginx, etc.)
+  const expressApp = app.getHttpAdapter().getInstance();
+  expressApp.set('trust proxy', 1);
+
   // Register global exception filter
   app.useGlobalFilters(new GlobalExceptionFilter());
 

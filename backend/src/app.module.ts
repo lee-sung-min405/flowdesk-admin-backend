@@ -1,5 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { APP_GUARD } from '@nestjs/core';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { DatabaseModule } from './database/database.module';
@@ -22,6 +24,13 @@ import { PermissionsModule } from './modules/rbac/permissions.module';
       validate,
       cache: true,
     }),
+    ThrottlerModule.forRoot([
+      {
+        name: 'default',
+        ttl: 60000, // 60초
+        limit: 60, // 기본: 60초에 60회
+      },
+    ]),
     DatabaseModule,
     HealthModule,
     AuthModule,
@@ -32,6 +41,12 @@ import { PermissionsModule } from './modules/rbac/permissions.module';
     SuperModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
+  ],
 })
 export class AppModule {}
