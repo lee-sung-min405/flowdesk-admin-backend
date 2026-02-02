@@ -156,6 +156,75 @@
 - 모든 권한은 **소속 테넌트 내에서만 유효**하다
 - 동일한 권한이라도 다른 테넌트의 리소스에는 적용되지 않는다
 
+### /auth/me 응답 구조
+
+현재 로그인한 사용자의 정보와 권한을 조회하는 엔드포인트의 응답 구조는 다음과 같다:
+
+```json
+{
+  "user": {
+    "userSeq": 1,
+    "userId": "admin",
+    "userName": "관리자",
+    "tenantId": 1,
+    "tenantName": "flowdesk"
+  },
+  "roles": ["ADMIN", "USER_MANAGER"],
+  "permissions": {
+    "users.read": true,
+    "users.create": true,
+    "roles.read": true,
+    "roles.delete": true
+  },
+  "menuTree": [
+    {
+      "pageName": "super",
+      "displayName": "슈퍼 관리자",
+      "path": "/super",
+      "order": 1,
+      "children": [
+        {
+          "pageName": "super.dashboard",
+          "displayName": "대시보드",
+          "path": "/super/dashboard",
+          "order": 1,
+          "children": []
+        },
+        {
+          "pageName": "super.tenants",
+          "displayName": "테넌트 관리",
+          "path": "/tenants",
+          "order": 2,
+          "children": []
+        }
+      ]
+    }
+  ]
+}
+```
+
+**응답 필드 설명**
+
+| 필드 | 타입 | 설명 |
+|------|------|------|
+| `user` | Object | 사용자 기본 정보 (userSeq, userId, userName, tenantId, tenantName) |
+| `roles` | String[] | 사용자에게 할당된 역할 목록 |
+| `permissions` | Record<string, boolean> | 권한 빠른 조회용 flat 구조 (O(1) 조회) |
+| `menuTree` | MenuTreeNode[] | 권한 기반 필터링된 메뉴 트리 (사용자가 접근 가능한 페이지만 포함) |
+
+**menuTree 특징**
+
+- 사용자가 `read` 권한을 가진 페이지만 포함한다
+- 계층 구조를 유지한다 (부모-자식 관계)
+- 프론트엔드에서 네비게이션 메뉴 렌더링에 사용한다
+- 응답 크기가 최적화되어 있다 (약 800B, 기존 대비 70% 감소)
+
+**사용 사례**
+
+- `permissions`: 버튼 표시 제어, 라우터 가드
+- `menuTree`: 사이드바 메뉴 생성
+- `roles`: 역할 기반 UI 분기
+
 ---
 
 ## 7. 예외 및 실패 처리 정책

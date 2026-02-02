@@ -7,6 +7,7 @@ import { RolePermission } from './entities/role-permission.entity';
 import { User } from '../users/entities/user.entity';
 import { CreateRoleDto } from './dto/create-role.dto';
 import { UpdateRoleDto } from './dto/update-role.dto';
+import { ModifyPermissionsResponseDto } from './dto/modify-permissions-response.dto';
 import { 
   ResourceNotFoundException, 
   BusinessConflictException,
@@ -122,17 +123,83 @@ export class RolesService {
     await this.roleRepository.remove(role);
   }
 
-  // =====================
-  // Role-Permission 관리
-  // =====================
-  async assignRolePermissions(roleId: number, tenantId: number, permissionIds: number[]): Promise<Role> {
-    const role = await this.getRoleById(roleId, tenantId);
-    await this.rolePermissionRepository.delete({ roleId });
-    const rolePermissions = permissionIds.map((permissionId) =>
-      this.rolePermissionRepository.create({ roleId, permissionId })
+  async copyRolePermissions(
+    targetRoleId: number,
+    tenantId: number,
+    sourceRoleId: number,
+  ): Promise<Role> {
+    const targetRole = await this.getRoleById(targetRoleId, tenantId);
+
+    const sourceRole = await this.getRoleById(sourceRoleId, tenantId);
+
+    const sourcePermissions = await this.rolePermissionRepository.find({
+      where: { roleId: sourceRoleId },
+      select: { permissionId: true },
+    });
+
+    if (sourcePermissions.length === 0) {
+      throw new ValidationException(
+        `원본 역할 ID ${sourceRoleId}에 할당된 권한이 없습니다`,
+        `원본 역할에 권한이 없어 복사할 수 없습니다`,
+        { sourceRoleId, targetRoleId }
+      );
+    }
+
+    const permissionIds = sourcePermissions.map(rp => rp.permissionId);
+
+    await this.rolePermissionRepository.delete({ roleId: targetRoleId });
+
+    const newPermissions = permissionIds.map(permissionId =>
+      this.rolePermissionRepository.create({ roleId: targetRoleId, permissionId })
     );
-    await this.rolePermissionRepository.save(rolePermissions);
-    return this.getRoleById(roleId, tenantId);
+    await this.rolePermissionRepository.save(newPermissions);
+
+    return this.getRoleById(targetRoleId, tenantId);
+  }
+
+  async modifyRolePermissions(
+    roleId: number,
+    tenantId: number,
+    add: number[] = [],
+    remove: number[] = [],
+  ): Promise<ModifyPermissionsResponseDto> {
+    const role = await this.getRoleById(roleId, tenantId);
+
+    const existing = await this.rolePermissionRepository.find({
+      where: { roleId },
+      select: {permissionId: true},
+    });
+    const existingIds = new Set(existing.map(rp => rp.permissionId));
+
+    const toAdd = add.filter(id => !existingIds.has(id));
+    const alreadyExists = add.filter(id => existingIds.has(id));
+
+    const toRemove = remove.filter(id => existingIds.has(id));
+    const notFound = remove.filter(id => !existingIds.has(id));
+
+    if (toRemove.length > 0) {
+      await this.rolePermissionRepository.delete({
+        roleId,
+        permissionId: In(toRemove),
+      });
+    }
+
+    if (toAdd.length > 0) {
+      const newPermissions = toAdd.map(permissionId =>
+        this.rolePermissionRepository.create({ roleId, permissionId })
+      );
+      await this.rolePermissionRepository.save(newPermissions);
+    }
+    
+    const finalCount = await this.rolePermissionRepository.count({ where: { roleId } });
+
+    return {
+      added: toAdd,
+      removed: toRemove,
+      alreadyExists,
+      notFound,
+      totalCount: finalCount,
+    };
   }
 
   async findRolePermissions(roleId: number, tenantId: number): Promise<RolePermission[] | null> {
@@ -158,10 +225,6 @@ export class RolesService {
       relations: { permission: { page: true, action: true } }
     });
   }
-
-  // =====================
-  // User-Role 관리
-  // =====================
 
   async findRoleUsers(roleId: number, tenantId: number): Promise<UserRole[] | null> {
     const role = await this.findRoleById(roleId, tenantId);
@@ -196,7 +259,6 @@ export class RolesService {
         { userSeq, tenantId }
       );
     }
-    // 이미 할당된 역할 조회
     const existing = await this.userRoleRepository.find({ where: { userSeq, tenantId } });
     const existingRoleIds = new Set(existing.map(ur => ur.roleId));
     const newRoleIds = roleIds.filter(id => !existingRoleIds.has(id));

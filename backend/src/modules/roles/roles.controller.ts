@@ -27,9 +27,12 @@ import { RequireAuth } from '../../common/decorators/require-auth.decorator';
 import { CreateRoleDto } from './dto/create-role.dto';
 import { UpdateRoleDto } from './dto/update-role.dto';
 import { AssignPermissionsDto } from './dto/assign-permissions.dto';
+import { ModifyPermissionsDto } from './dto/modify-permissions.dto';
+import { CopyPermissionsDto } from './dto/copy-permissions.dto';
 import { AssignRolesDto } from './dto/assign-roles.dto';
 import { StandardErrorResponseDto } from '../../common/dto/error-response.dto';
 import { RoleResponseDto, RoleDetailResponseDto, RolePermissionResponseDto, RoleUserResponseDto } from './dto/role-response.dto';
+import { ModifyPermissionsResponseDto } from './dto/modify-permissions-response.dto';
 import { SafeUser } from '../auth/types/safe-user.type';
 
 interface AuthenticatedRequest extends Request {
@@ -50,9 +53,6 @@ interface AuthenticatedRequest extends Request {
 export class RolesController {
   constructor(private readonly rolesService: RolesService) {}
 
-  // =====================
-  // Role CRUD
-  // =====================
   @Get()
   @RequireAuth('roles', 'read')
   @ApiOperation({ summary: '역할 목록 조회', description: '현재 로그인한 사용자의 테넌트에 속한 역할 목록을 조회합니다.' })
@@ -160,9 +160,6 @@ export class RolesController {
     await this.rolesService.deleteRole(id, request.user.tenantId);
   }
 
-  // =====================
-  // Role-Permission 관리
-  // =====================
   @Get(':id/permissions')
   @RequireAuth('roles', 'read')
   @ApiOperation({ summary: '역할의 권한 목록 조회' })
@@ -181,24 +178,57 @@ export class RolesController {
 
   @Put(':id/permissions')
   @RequireAuth('roles', 'update')
-  @ApiOperation({ summary: '역할에 권한 할당 (기존 권한 대체)' })
+  @ApiOperation({ 
+    summary: '다른 역할의 권한 복사', 
+    description: '원본 역할(sourceRoleId)의 권한을 대상 역할로 복사합니다. 대상 역할의 기존 권한은 모두 제거되고 원본 역할의 권한으로 대체됩니다.'
+  })
+  @ApiParam({ name: 'id', type: Number, description: '권한을 받을 대상 역할 ID' })
+  @ApiResponse({
+    status: 200,
+    description: '권한 복사 성공',
+    type: RoleDetailResponseDto,
+  })
+  @ApiResponse({
+    status: 404,
+    description: '대상 역할 또는 원본 역할을 찾을 수 없음',
+  })
+  @ApiResponse({
+    status: 400,
+    description: '원본 역할에 할당된 권한이 없음',
+  })
+  async copyPermissions(
+    @Req() request: AuthenticatedRequest,
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: CopyPermissionsDto,
+  ) {
+    return this.rolesService.copyRolePermissions(id, request.user.tenantId, dto.sourceRoleId);
+  }
+
+  @Patch(':id/permissions')
+  @RequireAuth('roles', 'update')
+  @ApiOperation({ 
+    summary: '역할의 권한 추가/제거 (증분 업데이트)', 
+    description: '명시된 권한만 추가하거나 제거합니다. PATCH 의미론에 따라 부분 업데이트를 수행합니다.'
+  })
   @ApiParam({ name: 'id', type: Number, description: '역할 ID' })
   @ApiResponse({
     status: 200,
-    description: '권한 할당 성공',
-    type: [RolePermissionResponseDto],
+    description: '권한 수정 성공 - 추가/제거된 권한 정보 반환',
+    type: ModifyPermissionsResponseDto,
   })
-  async assignPermissions(
+  async modifyPermissions(
     @Req() request: AuthenticatedRequest,
     @Param('id', ParseIntPipe) id: number,
-    @Body() dto: AssignPermissionsDto,
+    @Body() dto: ModifyPermissionsDto,
   ) {
-    return this.rolesService.assignRolePermissions(id, request.user.tenantId, dto.permissionIds);
+    return this.rolesService.modifyRolePermissions(
+      id,
+      request.user.tenantId,
+      dto.add || [],
+      dto.remove || [],
+    );
   }
 
-  // =====================
-  // User-Role 관리
-  // =====================
   @Get(':id/users')
   @RequireAuth('roles', 'read')
   @ApiOperation({ summary: '역할이 할당된 사용자 목록 조회' })

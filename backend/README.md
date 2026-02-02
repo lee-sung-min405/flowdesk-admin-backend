@@ -827,15 +827,15 @@ npm run start:dev
 ### 주요 경로
 
 #### Auth (인증)
-| 경로 | 메서드 | 용도 | 인증 |
-|------|--------|------|------|
-| `/auth/signup` | POST | 회원가입 (테넌트 + 관리자 생성) | - |
-| `/auth/login` | POST | 로그인 | - |
-| `/auth/refresh` | POST | 토큰 갱신 | - |
-| `/auth/logout` | POST | 로그아웃 (리프레시 토큰 폐기) | ✅ |
-| `/auth/logout-all` | POST | 모든 기기에서 로그아웃 | ✅ |
-| `/auth/me` | GET | 현재 사용자 정보 및 권한 조회 | ✅ |
-| `/auth/change-password` | POST | 비밀번호 변경 (본인) | ✅ |
+| 경로 | 메서드 | 용도 | 인증 | 비고 |
+|------|--------|------|------|------|
+| `/auth/signup` | POST | 회원가입 (테넌트 + 관리자 생성) | - | - |
+| `/auth/login` | POST | 로그인 | - | - |
+| `/auth/refresh` | POST | 토큰 갱신 | - | - |
+| `/auth/logout` | POST | 로그아웃 (리프레시 토큰 폐기) | ✅ | - |
+| `/auth/logout-all` | POST | 모든 기기에서 로그아웃 | ✅ | - |
+| `/auth/me` | GET | 현재 사용자 정보 및 권한 조회 | ✅ | menuTree 포함 |
+| `/auth/change-password` | POST | 비밀번호 변경 (본인) | ✅ | - |
 
 #### Users (사용자 관리)
 | 경로 | 메서드 | 용도 | 권한 |
@@ -858,7 +858,8 @@ npm run start:dev
 | `/roles/:id/status` | PATCH | 역할 상태 변경 | roles.update |
 | `/roles/:id` | DELETE | 역할 삭제 | roles.delete |
 | `/roles/:id/permissions` | GET | 역할 권한 목록 조회 | roles.read |
-| `/roles/:id/permissions` | PUT | 역할 권한 할당 | roles.update |
+| `/roles/:id/permissions` | PUT | 다른 역할의 권한 복사 | roles.update |
+| `/roles/:id/permissions` | PATCH | 역할 권한 증분 업데이트 (추가/제거) | roles.update |
 | `/roles/:id/users` | GET | 역할 사용자 목록 조회 | roles.read |
 | `/roles/users/:userSeq/assign` | POST | 사용자에게 역할 배정 | roles.update |
 | `/roles/users/:userSeq/unassign` | POST | 사용자에게서 역할 해제 | roles.update |
