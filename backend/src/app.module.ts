@@ -15,6 +15,7 @@ import databaseConfig from './config/configuration';
 import { SuperModule } from './modules/super/super.module';
 import { PermissionsModule } from './modules/rbac/permissions.module';
 import { RequestIdMiddleware } from './common/middleware/request-id.middleware';
+import { WebsitesModule } from './modules/websites/websites.module';
 
 @Module({
   imports: [
@@ -40,6 +41,7 @@ import { RequestIdMiddleware } from './common/middleware/request-id.middleware';
     RolesModule,
     TenantsModule,
     SuperModule,
+    WebsitesModule,
   ],
   controllers: [AppController],
   providers: [
