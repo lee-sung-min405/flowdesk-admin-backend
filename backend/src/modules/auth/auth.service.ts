@@ -241,91 +241,71 @@ export class AuthService {
   }
 
   async getUserRoles(userSeq: number): Promise<string[]> {
-    try {
-      const roles = await this.roleRepository
-        .createQueryBuilder('role')
-        .innerJoin('role.userRoles', 'ur')
-        .where('ur.userSeq = :userSeq', { userSeq })
-        .andWhere('role.isActive = :isActive', { isActive: 1 })
-        .orderBy('role.roleName', 'ASC')
-        .getMany();
+    const roles = await this.roleRepository
+      .createQueryBuilder('role')
+      .innerJoin('role.userRoles', 'ur')
+      .where('ur.userSeq = :userSeq', { userSeq })
+      .andWhere('role.isActive = :isActive', { isActive: 1 })
+      .orderBy('role.roleName', 'ASC')
+      .getMany();
 
-      return roles.map(role => role.roleName);
-    } catch (error) {
-      this.logger.error(`Failed to get user roles for userSeq ${userSeq}`, error);
-      throw error;
-    }
+    return roles.map(role => role.roleName);
   }
 
   async getUserPermissions(userSeq: number): Promise<{
     permissions: Record<string, boolean>;
   }> {
-    try {
-      const permissions = await this.permissionRepository
-        .createQueryBuilder('permission')
-        .innerJoin('permission.page', 'page')
-        .innerJoin('permission.action', 'action')
-        .innerJoin('permission.rolePermissions', 'rp')
-        .innerJoin('rp.role', 'role')
-        .innerJoin('role.userRoles', 'ur')
-        .where('ur.userSeq = :userSeq', { userSeq })
-        .andWhere('permission.isActive = :isActive', { isActive: 1 })
-        .andWhere('page.isActive = :isActive', { isActive: 1 })
-        .andWhere('action.isActive = :isActive', { isActive: 1 })
-        .andWhere('role.isActive = :isActive', { isActive: 1 })
-        .select('page.pageName', 'pageName')
-        .addSelect('action.actionName', 'actionName')
-        .getRawMany();
+    const permissions = await this.permissionRepository
+      .createQueryBuilder('permission')
+      .innerJoin('permission.page', 'page')
+      .innerJoin('permission.action', 'action')
+      .innerJoin('permission.rolePermissions', 'rp')
+      .innerJoin('rp.role', 'role')
+      .innerJoin('role.userRoles', 'ur')
+      .where('ur.userSeq = :userSeq', { userSeq })
+      .andWhere('permission.isActive = :isActive', { isActive: 1 })
+      .andWhere('page.isActive = :isActive', { isActive: 1 })
+      .andWhere('action.isActive = :isActive', { isActive: 1 })
+      .andWhere('role.isActive = :isActive', { isActive: 1 })
+      .select('page.pageName', 'pageName')
+      .addSelect('action.actionName', 'actionName')
+      .getRawMany();
 
-      this.logger.log(`Retrieved ${permissions.length} permissions for userSeq ${userSeq}`);
+    const permissionsIndex: Record<string, boolean> = {};
+    permissions.forEach(p => {
+      const key = PermissionUtil.buildKey(p.pageName, p.actionName);
+      permissionsIndex[key] = true;
+    });
 
-
-      const permissionsIndex: Record<string, boolean> = {};
-      permissions.forEach(p => {
-        const key = PermissionUtil.buildKey(p.pageName, p.actionName);
-        permissionsIndex[key] = true;
-      });
-
-      return {
-        permissions: permissionsIndex,
-      };
-    } catch (error) {
-      this.logger.error(`Failed to get user permissions for userSeq ${userSeq}`, error);
-      throw error;
-    }
+    return {
+      permissions: permissionsIndex,
+    };
   }
 
   async getUserMenuTree(userSeq: number): Promise<MenuTreeNodeDto[]> {
-    try {
-      const { permissions } = await this.getUserPermissions(userSeq);
+    const { permissions } = await this.getUserPermissions(userSeq);
 
-      const pages = await this.permissionRepository
-        .createQueryBuilder('permission')
-        .innerJoin('permission.page', 'page')
-        .where('page.isActive = :isActive', { isActive: 1 })
-        .select('page.pageId', 'pageId')
-        .addSelect('page.pageName', 'pageName')
-        .addSelect('page.displayName', 'displayName')
-        .addSelect('page.path', 'path')
-        .addSelect('page.sortOrder', 'sortOrder')
-        .addSelect('page.parentId', 'parentId')
-        .distinct(true)
-        .orderBy('page.sortOrder', 'ASC')
-        .addOrderBy('page.pageName', 'ASC')
-        .getRawMany();
+    const pages = await this.permissionRepository
+      .createQueryBuilder('permission')
+      .innerJoin('permission.page', 'page')
+      .where('page.isActive = :isActive', { isActive: 1 })
+      .select('page.pageId', 'pageId')
+      .addSelect('page.pageName', 'pageName')
+      .addSelect('page.displayName', 'displayName')
+      .addSelect('page.path', 'path')
+      .addSelect('page.sortOrder', 'sortOrder')
+      .addSelect('page.parentId', 'parentId')
+      .distinct(true)
+      .orderBy('page.sortOrder', 'ASC')
+      .addOrderBy('page.pageName', 'ASC')
+      .getRawMany();
 
-      const accessiblePages = pages.filter(page => {
-        const permissionKey = `${page.pageName}.read`;
-        return permissions[permissionKey] === true;
-      });
+    const accessiblePages = pages.filter(page => {
+      const permissionKey = `${page.pageName}.read`;
+      return permissions[permissionKey] === true;
+    });
 
-      this.logger.log(`Filtered ${accessiblePages.length} accessible pages for userSeq ${userSeq}`);
-
-      return this.buildMenuTree(accessiblePages);
-    } catch (error) {
-      this.logger.error(`Failed to get user menu tree for userSeq ${userSeq}`, error);
-      throw error;
-    }
+    return this.buildMenuTree(accessiblePages);
   }
 
   private buildMenuTree(pages: any[]): MenuTreeNodeDto[] {
