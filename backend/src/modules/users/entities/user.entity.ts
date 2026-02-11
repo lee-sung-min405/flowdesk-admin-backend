@@ -3,10 +3,12 @@ import {
   PrimaryGeneratedColumn,
   Column,
   ManyToOne,
+  OneToMany,
   JoinColumn,
   Index,
 } from 'typeorm';
 import { Tenant } from '../../tenants/entities/tenant.entity';
+import { UserRole } from '../../roles/entities/user-role.entity';
 
 @Entity({ name: 'users' })
 @Index(['userSeq', 'tenantId'], { unique: true })
@@ -54,5 +56,8 @@ export class User {
   @ManyToOne(() => Tenant, { onUpdate: 'CASCADE' })
   @JoinColumn({ name: 'tenant_id' })
   tenant: Tenant;
+
+  @OneToMany(() => UserRole, userRole => userRole.user)
+  userRoles: UserRole[];
 }
 

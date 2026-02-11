@@ -31,9 +31,9 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UpdateUserStatusDto } from './dto/update-user-status.dto';
 import { UpdateUserPasswordDto } from './dto/update-user-password.dto';
-import { UserDetailDto } from './dto/user-detail.dto';
-import { ListResponseDto } from './dto/list-response.dto';
-import { UserListItemDto } from './dto/user-list-item.dto';
+import { User } from './entities/user.entity';
+import { UserListResponseDto } from './dto/user-list-response.dto';
+import { UserDetailResponseDto } from './dto/user-detail-response.dto';
 import { StandardErrorResponseDto } from '../../common/dto/error-response.dto';
 import { SafeUser } from '../auth/types/safe-user.type';
 
@@ -71,7 +71,7 @@ export class UsersController {
   @ApiQuery({ name: 'order', required: false, description: '정렬 순서', enum: ['ASC', 'DESC'], example: 'DESC' })
   @ApiOkResponse({
     description: '사용자 목록 조회 성공',
-    type: ListResponseDto,
+    type: UserListResponseDto,
   })
   @ApiUnauthorizedResponse({
     description: '인증 실패 (AUTH001) - 토큰 없음/만료/위조',
@@ -89,23 +89,27 @@ export class UsersController {
     @Query('isActive', new ParseIntPipe({ optional: true })) isActive?: number,
     @Query('sort') sort?: string,
     @Query('order') order?: 'ASC' | 'DESC',
-  ): Promise<ListResponseDto<UserListItemDto>> {
+  ): Promise<UserListResponseDto> {
     return this.usersService.findUsers(request.user.tenantId, page, limit, q, isActive, sort, order);
   }
 
   @Get(':id')
   @RequireAuth('users', 'read')
   @ApiOperation({
-    summary: '사용자 상세 조회',
-    description: `특정 사용자의 상세 정보를 조회합니다.
+    summary: '사용자 상세 조회 (전체 역할 목록 포함)',
+    description: `특정 사용자의 상세 정보와 할당 가능한 모든 역할 목록을 조회합니다.
 
 **권한:** users.read
 
-**Tenant 격리:** 같은 테넌트 내 사용자만 조회 가능`,
+**Tenant 격리:** 같은 테넌트 내 사용자만 조회 가능
+
+**응답 구조:**
+- assignedRoleIds: 할당된 역할 ID 배열
+- availableRoles: 전체 역할 목록 (isAssigned 플래그 포함)`,
   })
   @ApiOkResponse({
     description: '사용자 상세 조회 성공',
-    type: UserDetailDto,
+    type: UserDetailResponseDto,
   })
   @ApiUnauthorizedResponse({
     description: '인증 실패 (AUTH001)',
@@ -122,7 +126,7 @@ export class UsersController {
   async findOne(
     @Req() request: AuthenticatedRequest,
     @Param('id', ParseIntPipe) id: number,
-  ): Promise<UserDetailDto> {
+  ) {
     return this.usersService.getUserDetail(request.user.tenantId, id);
   }
 
@@ -140,7 +144,7 @@ export class UsersController {
   })
   @ApiCreatedResponse({
     description: '사용자 생성 성공',
-    type: UserDetailDto,
+    type: User,
   })
   @ApiBadRequestResponse({
     description: '유효성 검사 실패 (VAL001)',
@@ -161,25 +165,32 @@ export class UsersController {
   async create(
     @Req() request: AuthenticatedRequest,
     @Body() createUserDto: CreateUserDto,
-  ): Promise<UserDetailDto> {
+  ): Promise<User> {
     return this.usersService.createUser(request.user.tenantId, createUserDto);
   }
 
   @Patch(':id')
   @RequireAuth('users', 'update')
   @ApiOperation({
-    summary: '사용자 정보 수정',
-    description: `사용자 정보를 수정합니다.
+    summary: '사용자 정보 수정 (역할 포함 가능)',
+    description: `사용자 기본 정보와 역할을 수정합니다.
 
 **권한:** users.update
 
 **수정 불가 필드:** userId, password (별도 API 사용)
 
-**수정 가능 필드:** corpName, userName, userEmail, userTel, userHp`,
+**수정 가능 필드:** 
+- 기본 정보: corpName, userName, userEmail, userTel, userHp
+- 역할: roleIds (선택적, 전송 시 기존 역할을 모두 교체)
+
+**역할 수정:**
+- roleIds를 포함하면 기존 역할이 모두 제거되고 새 역할로 교체됩니다
+- roleIds를 생략하면 역할은 변경되지 않습니다
+- 빈 배열([])을 전송하면 모든 역할이 제거됩니다`,
   })
   @ApiOkResponse({
     description: '사용자 정보 수정 성공',
-    type: UserDetailDto,
+    type: User,
   })
   @ApiBadRequestResponse({
     description: '유효성 검사 실패 (VAL001)',
@@ -201,7 +212,7 @@ export class UsersController {
     @Req() request: AuthenticatedRequest,
     @Param('id', ParseIntPipe) id: number,
     @Body() updateUserDto: UpdateUserDto,
-  ): Promise<UserDetailDto> {
+  ): Promise<User> {
     return this.usersService.updateUser(request.user.tenantId, id, updateUserDto);
   }
 
@@ -221,7 +232,7 @@ export class UsersController {
   })
   @ApiOkResponse({
     description: '사용자 상태 변경 성공',
-    type: UserDetailDto,
+    type: User,
   })
   @ApiBadRequestResponse({
     description: '유효성 검사 실패 (VAL001)',
@@ -243,7 +254,7 @@ export class UsersController {
     @Req() request: AuthenticatedRequest,
     @Param('id', ParseIntPipe) id: number,
     @Body() updateUserStatusDto: UpdateUserStatusDto,
-  ): Promise<UserDetailDto> {
+  ): Promise<User> {
     return this.usersService.updateUserStatus(request.user.tenantId, id, updateUserStatusDto);
   }
 

@@ -1,14 +1,16 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { User } from './entities/user.entity';
+import { UserRole } from '../roles/entities/user-role.entity';
+import { Role } from '../roles/entities/role.entity';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UpdateUserStatusDto } from './dto/update-user-status.dto';
 import { UpdateUserPasswordDto } from './dto/update-user-password.dto';
 import { UserListItemDto } from './dto/user-list-item.dto';
-import { UserDetailDto } from './dto/user-detail.dto';
+import { UserDetailResponseDto } from './dto/user-detail-response.dto';
 import { ListResponseDto } from './dto/list-response.dto';
 import {
   BusinessConflictException,
@@ -20,6 +22,10 @@ export class UsersService {
   constructor(
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    @InjectRepository(UserRole)
+    private readonly userRoleRepository: Repository<UserRole>,
+    @InjectRepository(Role)
+    private readonly roleRepository: Repository<Role>,
   ) {}
 
   async findUsers(
@@ -101,35 +107,53 @@ export class UsersService {
     return user;
   }
 
-  /**
-   * 사용자 상세 조회 (UserDetailDto 반환, 없으면 예외)
-   */
-  async getUserDetail(tenantId: number, userSeq: number): Promise<UserDetailDto> {
-    const user = await this.getUserById(tenantId, userSeq);
-    return this.toDetailDto(user);
-  }
+  async getUserDetail(tenantId: number, userSeq: number): Promise<UserDetailResponseDto> {
+    const user = await this.userRepository.findOne({
+      where: { userSeq, tenantId },
+      relations: {
+        userRoles: {
+          role: true,
+        },
+      },
+    });
 
-  /**
-   * Entity → UserDetailDto 매핑 헬퍼
-   */
-  private toDetailDto(user: User): UserDetailDto {
+    if (!user) {
+      throw new ResourceNotFoundException(
+        `User not found: userSeq=${userSeq}, tenantId=${tenantId}`,
+        '사용자를 찾을 수 없습니다.',
+        { userSeq, tenantId },
+      );
+    }
+
+    // 테넌트의 전체 역할 목록 조회
+    const allRoles = await this.roleRepository.find({
+      where: { tenantId },
+      order: { roleId: 'ASC' },
+    });
+
+    // 할당된 역할 ID 추출
+    const assignedRoleIds = user.userRoles.map(ur => ur.role.roleId);
+
+    // 전체 역할 목록에 할당 여부 포함
+    const availableRoles = allRoles.map(role => ({
+      roleId: role.roleId,
+      roleName: role.roleName,
+      displayName: role.displayName,
+      description: role.description,
+      isActive: role.isActive,
+      isAssigned: assignedRoleIds.includes(role.roleId),
+    }));
+
+    const { userPwd, tokenVersion, userRoles, ...safeUserData } = user;
+
     return {
-      userSeq: user.userSeq,
-      userId: user.userId,
-      corpName: user.corpName,
-      userName: user.userName,
-      userEmail: user.userEmail,
-      userTel: user.userTel,
-      userHp: user.userHp,
-      isActive: user.isActive,
-      tokenVersion: user.tokenVersion,
-      regDtm: user.regDtm,
-      stopDtm: user.stopDtm,
-      tenantId: user.tenantId,
+      ...safeUserData,
+      assignedRoleIds,
+      availableRoles,
     };
   }
 
-  async createUser(tenantId: number, createUserDto: CreateUserDto): Promise<UserDetailDto> {
+  async createUser(tenantId: number, createUserDto: CreateUserDto): Promise<User> {
     const existingUser = await this.userRepository.findOne({
       where: { tenantId, userId: createUserDto.userId },
     });
@@ -159,16 +183,17 @@ export class UsersService {
 
     const savedUser = await this.userRepository.save(user);
 
-    return this.toDetailDto(savedUser);
+    return savedUser;
   }
 
   async updateUser(
     tenantId: number,
     userSeq: number,
     updateUserDto: UpdateUserDto,
-  ): Promise<UserDetailDto> {
+  ): Promise<User> {
     const user = await this.getUserById(tenantId, userSeq);
 
+    // 기본 정보 업데이트
     if (updateUserDto.corpName !== undefined) user.corpName = updateUserDto.corpName;
     if (updateUserDto.userName !== undefined) user.userName = updateUserDto.userName;
     if (updateUserDto.userEmail !== undefined) user.userEmail = updateUserDto.userEmail;
@@ -177,22 +202,57 @@ export class UsersService {
 
     const savedUser = await this.userRepository.save(user);
 
-    return this.toDetailDto(savedUser);
+    // 역할 업데이트 (선택적)
+    if (updateUserDto.roleIds !== undefined) {
+      const roleIds = updateUserDto.roleIds;
+
+      // 역할 존재 확인
+      if (roleIds.length > 0) {
+        const roles = await this.roleRepository.find({
+          where: { roleId: In(roleIds), tenantId },
+        });
+
+        if (roles.length !== roleIds.length) {
+          throw new ResourceNotFoundException(
+            `일부 역할 ID를 찾을 수 없습니다`,
+            '존재하지 않는 역할이 포함되어 있습니다.',
+            { requestedRoleIds: roleIds, foundRoleIds: roles.map(r => r.roleId) },
+          );
+        }
+      }
+
+      // 기존 역할 모두 삭제
+      await this.userRoleRepository.delete({ userSeq, tenantId });
+
+      // 새 역할 할당
+      if (roleIds.length > 0) {
+        const userRoles = roleIds.map(roleId => 
+          this.userRoleRepository.create({
+            userSeq,
+            tenantId,
+            roleId,
+          })
+        );
+        await this.userRoleRepository.save(userRoles);
+      }
+    }
+
+    return savedUser;
   }
 
   async updateUserStatus(
     tenantId: number,
     userSeq: number,
     updateUserStatusDto: UpdateUserStatusDto,
-  ): Promise<UserDetailDto> {
+  ): Promise<User> {
     const user = await this.getUserById(tenantId, userSeq);
 
-    user.isActive = updateUserStatusDto.isActive ? 1 : 0;
-    user.stopDtm = updateUserStatusDto.isActive ? null : new Date();
+    user.isActive = updateUserStatusDto.isActive;
+    user.stopDtm = updateUserStatusDto.isActive === 1 ? null : new Date();
 
     const savedUser = await this.userRepository.save(user);
 
-    return this.toDetailDto(savedUser);
+    return savedUser;
   }
 
   async updateUserPassword(

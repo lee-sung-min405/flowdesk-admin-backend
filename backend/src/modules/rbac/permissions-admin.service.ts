@@ -114,9 +114,9 @@ export class PermissionsAdminService {
     return this.pageRepository.save(page);
   }
 
-  async updatePageStatus(pageId: number, isActive: boolean): Promise<Page> {
+  async updatePageStatus(pageId: number, isActive: number): Promise<Page> {
     const page = await this.getPageById(pageId);
-    page.isActive = isActive ? 1 : 0;
+    page.isActive = isActive;
     return this.pageRepository.save(page);
   }
 
@@ -216,9 +216,9 @@ export class PermissionsAdminService {
     return this.actionRepository.save(action);
   }
 
-  async updateActionStatus(actionId: number, isActive: boolean): Promise<Action> {
+  async updateActionStatus(actionId: number, isActive: number): Promise<Action> {
     const action = await this.getActionById(actionId);
-    action.isActive = isActive ? 1 : 0;
+    action.isActive = isActive;
     return this.actionRepository.save(action);
   }
 
@@ -332,9 +332,9 @@ export class PermissionsAdminService {
     return this.getPermissionById(permissionId);
   }
 
-  async updatePermissionStatus(permissionId: number, isActive: boolean): Promise<Permission> {
+  async updatePermissionStatus(permissionId: number, isActive: number): Promise<Permission> {
     const permission = await this.getPermissionById(permissionId);
-    permission.isActive = isActive ? 1 : 0;
+    permission.isActive = isActive;
     await this.permissionRepository.save(permission);
     return this.getPermissionById(permissionId);
   }

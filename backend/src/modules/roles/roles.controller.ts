@@ -26,6 +26,7 @@ import { RolesService } from './roles.service';
 import { RequireAuth } from '../../common/decorators/require-auth.decorator';
 import { CreateRoleDto } from './dto/create-role.dto';
 import { UpdateRoleDto } from './dto/update-role.dto';
+import { UpdateRoleStatusDto } from './dto/update-role-status.dto';
 import { AssignPermissionsDto } from './dto/assign-permissions.dto';
 import { ModifyPermissionsDto } from './dto/modify-permissions.dto';
 import { CopyPermissionsDto } from './dto/copy-permissions.dto';
@@ -135,9 +136,9 @@ export class RolesController {
   async updateStatus(
     @Req() request: AuthenticatedRequest,
     @Param('id', ParseIntPipe) id: number,
-    @Body('isActive') isActive: boolean,
+    @Body() dto: UpdateRoleStatusDto,
   ) {
-    return this.rolesService.updateRoleStatus(id, request.user.tenantId, isActive);
+    return this.rolesService.updateRoleStatus(id, request.user.tenantId, dto.isActive);
   }
 
   @Delete(':id')

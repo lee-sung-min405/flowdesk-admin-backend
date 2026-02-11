@@ -97,9 +97,9 @@ export class RolesService {
     return this.roleRepository.save(role);
   }
 
-  async updateRoleStatus(roleId: number, tenantId: number, isActive: boolean): Promise<Role> {
+  async updateRoleStatus(roleId: number, tenantId: number, isActive: number): Promise<Role> {
     const role = await this.getRoleById(roleId, tenantId);
-    role.isActive = isActive ? 1 : 0;
+    role.isActive = isActive;
     return this.roleRepository.save(role);
   }
 

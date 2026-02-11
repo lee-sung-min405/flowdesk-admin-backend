@@ -87,9 +87,9 @@ export class TenantsService {
     return this.tenantRepository.save(tenant);
   }
 
-  async updateTenantStatus(tenantId: number, isActive: boolean): Promise<Tenant> {
+  async updateTenantStatus(tenantId: number, isActive: number): Promise<Tenant> {
     const tenant = await this.getTenantById(tenantId);
-    tenant.isActive = isActive ? 1 : 0;
+    tenant.isActive = isActive;
     return this.tenantRepository.save(tenant);
   }
 

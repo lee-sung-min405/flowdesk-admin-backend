@@ -1,33 +1,30 @@
-import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsEmail, IsOptional, MaxLength } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsString, IsEmail, IsOptional, MaxLength, IsArray, IsInt, ArrayUnique } from 'class-validator';
 
 export class UpdateUserDto {
-  @ApiProperty({
+  @ApiPropertyOptional({
     description: '회사명',
     example: 'Acme Corporation',
     maxLength: 250,
-    required: false,
   })
   @IsOptional()
   @IsString()
   @MaxLength(250)
   corpName?: string;
 
-  @ApiProperty({
+  @ApiPropertyOptional({
     description: '사용자 이름',
     example: 'John Doe',
     maxLength: 200,
-    required: false,
   })
   @IsOptional()
   @IsString()
   @MaxLength(200)
   userName?: string;
 
-  @ApiProperty({
+  @ApiPropertyOptional({
     description: '이메일',
     example: 'john.doe@example.com',
-    required: false,
     maxLength: 250,
   })
   @IsOptional()
@@ -35,10 +32,9 @@ export class UpdateUserDto {
   @MaxLength(250)
   userEmail?: string;
 
-  @ApiProperty({
+  @ApiPropertyOptional({
     description: '전화번호',
     example: '02-1234-5678',
-    required: false,
     maxLength: 200,
   })
   @IsOptional()
@@ -46,14 +42,24 @@ export class UpdateUserDto {
   @MaxLength(200)
   userTel?: string;
 
-  @ApiProperty({
+  @ApiPropertyOptional({
     description: '휴대폰 번호',
     example: '010-1234-5678',
-    required: false,
     maxLength: 200,
   })
   @IsOptional()
   @IsString()
   @MaxLength(200)
   userHp?: string;
+
+  @ApiPropertyOptional({
+    description: '할당할 역할 ID 배열 (선택적, 전송 시 기존 역할을 모두 교체함)',
+    type: [Number],
+    example: [1, 3, 5],
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayUnique()
+  @IsInt({ each: true })
+  roleIds?: number[];
 }
