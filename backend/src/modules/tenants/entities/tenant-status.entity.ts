@@ -12,7 +12,6 @@ import { Tenant } from './tenant.entity';
 
 @Entity({ name: 'tenant_status' })
 @Index(['tenantId', 'statusGroup', 'statusKey'], { unique: true })
-@Index(['tenantId', 'tenantStatusId'], { unique: true })
 @Index(['tenantId', 'statusGroup'])
 export class TenantStatus {
   @PrimaryGeneratedColumn({ type: 'int', name: 'tenant_status_id' })

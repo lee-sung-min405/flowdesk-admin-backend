@@ -53,7 +53,9 @@ INSERT INTO pages (page_id, parent_id, page_name, path, display_name, descriptio
 -- 테넌트 관리자용 페이지 (최상위)
 (7, NULL, 'roles', '/roles', '역할 관리', '역할 생성/수정/삭제 및 권한 할당', 1, 10),
 (8, NULL, 'users', '/users', '사용자 관리', '사용자 생성/수정/삭제 및 역할 할당', 1, 11),
-(9, NULL, 'permissions', '/permissions/catalog', '권한 카탈로그', '권한 목록 조회 (역할 할당용)', 1, 12)
+(9, NULL, 'permissions', '/permissions/catalog', '권한 카탈로그', '권한 목록 조회 (역할 할당용)', 1, 12),
+(10, NULL, 'tenants.status', '/tenants/status', '테넌트 상태 관리', '테넌트별 커스텀 상태 관리 (상담, 주문 등)', 1, 13),
+(11, NULL, 'websites', '/websites', '웹사이트 관리', '웹사이트 등록/수정/삭제 및 활성화 관리', 1, 14)
 ON DUPLICATE KEY UPDATE display_name = VALUES(display_name), description = VALUES(description);
 
 -- ============================================================
@@ -103,7 +105,19 @@ INSERT INTO permissions (permission_id, page_id, action_id, display_name, descri
 (26, 8, 4, '사용자 삭제', '사용자 삭제', 1),
 
 -- permissions catalog (read만) - page_id = 9
-(27, 9, 1, '권한 카탈로그 조회', '역할에 할당할 권한 목록 조회', 1)
+(27, 9, 1, '권한 카탈로그 조회', '역할에 할당할 권한 목록 조회', 1),
+
+-- tenants.status (CRUD) - page_id = 10
+(28, 10, 1, '테넌트 상태 조회', '테넌트 커스텀 상태 목록 및 상세 조회', 1),
+(29, 10, 2, '테넌트 상태 생성', '새 테넌트 상태 생성', 1),
+(30, 10, 3, '테넌트 상태 수정', '테넌트 상태 정보 및 활성화 여부 수정', 1),
+(31, 10, 4, '테넌트 상태 삭제', '테넌트 상태 삭제', 1),
+
+-- websites (CRUD) - page_id = 11
+(32, 11, 1, '웹사이트 조회', '웹사이트 목록 및 상세 조회', 1),
+(33, 11, 2, '웹사이트 생성', '새 웹사이트 등록', 1),
+(34, 11, 3, '웹사이트 수정', '웹사이트 정보 및 활성화 여부 수정', 1),
+(35, 11, 4, '웹사이트 삭제', '웹사이트 삭제', 1)
 ON DUPLICATE KEY UPDATE display_name = VALUES(display_name), description = VALUES(description);
 
 -- ============================================================
@@ -144,7 +158,11 @@ INSERT INTO role_permissions (role_id, permission_id) VALUES
 -- users (CRUD)
 (1, 23), (1, 24), (1, 25), (1, 26),
 -- permissions catalog
-(1, 27)
+(1, 27),
+-- tenants.status (CRUD)
+(1, 28), (1, 29), (1, 30), (1, 31),
+-- websites (CRUD)
+(1, 32), (1, 33), (1, 34), (1, 35)
 ON DUPLICATE KEY UPDATE role_id = VALUES(role_id);
 
 -- ============================================================
@@ -161,6 +179,25 @@ ON DUPLICATE KEY UPDATE user_name = VALUES(user_name);
 INSERT INTO user_roles (user_seq, tenant_id, role_id) VALUES
 (1, 1, 1)  -- admin 사용자에게 super_admin 역할 부여
 ON DUPLICATE KEY UPDATE role_id = VALUES(role_id);
+
+-- ============================================================
+-- 9. Tenant Status (테넌트 커스텀 상태 - 상담용 샘플)
+-- ============================================================
+INSERT INTO tenant_status
+(tenant_id, status_group, status_key, status_name, description, color, sort_order, is_active)
+VALUES
+(1, 'counsel', 'NEW',         '신규접수',   '상담이 새로 접수된 상태',                 '#64748B', 10, 1),
+(1, 'counsel', 'TRY_CONTACT', '연락시도',   '연락을 시도했으나 아직 연결되지 않음',     '#F59E0B', 20, 1),
+(1, 'counsel', 'CONTACTED',   '연락완료',   '고객과 연결되어 기본 상담이 진행됨',       '#3B82F6', 30, 1),
+(1, 'counsel', 'SCHEDULED',   '상담예약',   '상담 일정이 확정됨',                       '#8B5CF6', 40, 1),
+(1, 'counsel', 'IN_PROGRESS', '상담진행중', '제안/견적/상세 상담 단계',                 '#0EA5E9', 50, 1),
+(1, 'counsel', 'HOLD',        '보류',       '일시 대기(추후 재접촉/재개 예정)',          '#A3A3A3', 60, 1),
+(1, 'counsel', 'WON',         '계약/전환',  '상담 결과 전환/계약/결제로 완료',           '#22C55E', 70, 1),
+(1, 'counsel', 'LOST',        '미전환',     '상담 종료(전환 실패)',                      '#EF4444', 80, 1),
+(1, 'counsel', 'NO_SHOW',     '노쇼',       '예약 후 미참석/연락두절',                   '#F97316', 90, 1),
+(1, 'counsel', 'DUPLICATE',   '중복',       '동일 고객의 중복 신청으로 분리 처리',       '#FB7185', 95, 1),
+(1, 'counsel', 'SPAM',        '스팸/무의미','스팸/봇/장난 등 처리 대상',                '#111827', 99, 1)
+ON DUPLICATE KEY UPDATE status_name = VALUES(status_name), description = VALUES(description);
 
 -- 트랜잭션 커밋
 COMMIT;

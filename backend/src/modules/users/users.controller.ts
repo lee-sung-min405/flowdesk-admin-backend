@@ -90,8 +90,7 @@ export class UsersController {
     @Query('sort') sort?: string,
     @Query('order') order?: 'ASC' | 'DESC',
   ): Promise<ListResponseDto<UserListItemDto>> {
-    const tenantId = request.user.tenantId;
-    return this.usersService.findUsers(tenantId, page, limit, q, isActive, sort, order);
+    return this.usersService.findUsers(request.user.tenantId, page, limit, q, isActive, sort, order);
   }
 
   @Get(':id')
@@ -124,8 +123,7 @@ export class UsersController {
     @Req() request: AuthenticatedRequest,
     @Param('id', ParseIntPipe) id: number,
   ): Promise<UserDetailDto> {
-    const tenantId = request.user.tenantId;
-    return this.usersService.getUserDetail(tenantId, id);
+    return this.usersService.getUserDetail(request.user.tenantId, id);
   }
 
   @Post()
@@ -164,8 +162,7 @@ export class UsersController {
     @Req() request: AuthenticatedRequest,
     @Body() createUserDto: CreateUserDto,
   ): Promise<UserDetailDto> {
-    const tenantId = request.user.tenantId;
-    return this.usersService.createUser(tenantId, createUserDto);
+    return this.usersService.createUser(request.user.tenantId, createUserDto);
   }
 
   @Patch(':id')
@@ -205,8 +202,7 @@ export class UsersController {
     @Param('id', ParseIntPipe) id: number,
     @Body() updateUserDto: UpdateUserDto,
   ): Promise<UserDetailDto> {
-    const tenantId = request.user.tenantId;
-    return this.usersService.updateUser(tenantId, id, updateUserDto);
+    return this.usersService.updateUser(request.user.tenantId, id, updateUserDto);
   }
 
   @Patch(':id/status')
@@ -248,8 +244,7 @@ export class UsersController {
     @Param('id', ParseIntPipe) id: number,
     @Body() updateUserStatusDto: UpdateUserStatusDto,
   ): Promise<UserDetailDto> {
-    const tenantId = request.user.tenantId;
-    return this.usersService.updateUserStatus(tenantId, id, updateUserStatusDto);
+    return this.usersService.updateUserStatus(request.user.tenantId, id, updateUserStatusDto);
   }
 
   @Patch(':id/password')
@@ -288,8 +283,7 @@ export class UsersController {
     @Param('id', ParseIntPipe) id: number,
     @Body() updateUserPasswordDto: UpdateUserPasswordDto,
   ): Promise<void> {
-    const tenantId = request.user.tenantId;
-    return this.usersService.updateUserPassword(tenantId, id, updateUserPasswordDto);
+    return this.usersService.updateUserPassword(request.user.tenantId, id, updateUserPasswordDto);
   }
 
   @Post(':id/invalidate-tokens')
@@ -325,7 +319,6 @@ export class UsersController {
     @Req() request: AuthenticatedRequest,
     @Param('id', ParseIntPipe) id: number,
   ): Promise<void> {
-    const tenantId = request.user.tenantId;
-    return this.usersService.invalidateUserTokens(tenantId, id);
+    return this.usersService.invalidateUserTokens(request.user.tenantId, id);
   }
 }

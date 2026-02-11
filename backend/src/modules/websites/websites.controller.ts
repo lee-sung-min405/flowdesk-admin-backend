@@ -94,8 +94,7 @@ export class WebsitesController {
     @Query('sort') sort?: string,
     @Query('order') order?: 'ASC' | 'DESC',
   ): Promise<WebsiteListResponseDto> {
-    const tenantId = request.user.tenantId;
-    return this.websitesService.findWebsites(tenantId, page, limit, q, isActive, sort, order);
+    return this.websitesService.findWebsites(request.user.tenantId, page, limit, q, isActive, sort, order);
   }
 
   @Get(':webCode')
@@ -129,8 +128,7 @@ export class WebsitesController {
     @Req() request: AuthenticatedRequest,
     @Param('webCode') webCode: string,
   ): Promise<WebsiteResponseDto> {
-    const tenantId = request.user.tenantId;
-    return this.websitesService.getWebsiteDetail(tenantId, webCode);
+    return this.websitesService.getWebsiteDetail(request.user.tenantId, webCode);
   }
 
   @Post()
@@ -169,8 +167,7 @@ export class WebsitesController {
     @Req() request: AuthenticatedRequest,
     @Body() createWebsiteDto: CreateWebsiteDto,
   ): Promise<WebsiteResponseDto> {
-    const tenantId = request.user.tenantId;
-    return this.websitesService.createWebsite(tenantId, createWebsiteDto);
+    return this.websitesService.createWebsite(request.user.tenantId, createWebsiteDto);
   }
 
   @Patch(':webCode')
@@ -211,8 +208,7 @@ export class WebsitesController {
     @Param('webCode') webCode: string,
     @Body() updateWebsiteDto: UpdateWebsiteDto,
   ): Promise<WebsiteResponseDto> {
-    const tenantId = request.user.tenantId;
-    return this.websitesService.updateWebsite(tenantId, webCode, updateWebsiteDto);
+    return this.websitesService.updateWebsite(request.user.tenantId, webCode, updateWebsiteDto);
   }
 
   @Patch(':webCode/status')
@@ -245,8 +241,7 @@ export class WebsitesController {
     @Param('webCode') webCode: string,
     @Body() dto: UpdateWebsiteStatusDto,
   ): Promise<WebsiteResponseDto> {
-    const tenantId = request.user.tenantId;
-    return this.websitesService.updateWebsiteStatus(tenantId, webCode, dto.isActive);
+    return this.websitesService.updateWebsiteStatus(request.user.tenantId, webCode, dto.isActive);
   }
 
   @Delete(':webCode')
@@ -280,7 +275,6 @@ export class WebsitesController {
     @Req() request: AuthenticatedRequest,
     @Param('webCode') webCode: string,
   ): Promise<void> {
-    const tenantId = request.user.tenantId;
-    await this.websitesService.deleteWebsite(tenantId, webCode);
+    await this.websitesService.deleteWebsite(request.user.tenantId, webCode);
   }
 }
