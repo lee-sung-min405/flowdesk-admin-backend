@@ -160,6 +160,10 @@ JWT 선택 이유:
 | Permissions | 권한 카탈로그 조회 API |
 | Permissions Admin | 페이지/액션/권한 CRUD API (슈퍼 관리자 전용) |
 | Super Admin | 슈퍼 관리자 대시보드 API (슈퍼 관리자 전용, 시스템 통계) |
+| Websites | 웹사이트 관리 API (상담 유입 웹사이트 CRUD) |
+| Security - Block IP | IP 차단 관리 API (CRUD, 대량 등록, 차단 여부 확인) |
+| Security - Block HP | 휴대폰 차단 관리 API (CRUD, 대량 등록, 차단 여부 확인) |
+| Security - Block Word | 금칙어 관리 API (CRUD, 대량 등록, 금칙어 포함 여부 확인) |
 
 ---
 
@@ -250,17 +254,31 @@ backend/
 │       │   ├── health.service.ts
 │       │   └── health.module.ts
 │       │
+│       ├── websites/              # 웹사이트 관리 모듈
+│       │   ├── websites.controller.ts
+│       │   ├── websites.service.ts
+│       │   ├── websites.module.ts
+│       │   ├── dto/               # 웹사이트 관련 DTO
+│       │   └── entities/          # Website 엔티티
+│       │
+│       ├── security/              # 보안(차단) 관리 모듈
+│       │   ├── block-ip.controller.ts
+│       │   ├── block-ip.service.ts
+│       │   ├── block-hp.controller.ts
+│       │   ├── block-hp.service.ts
+│       │   ├── block-word.controller.ts
+│       │   ├── block-word.service.ts
+│       │   ├── security.module.ts
+│       │   ├── dto/               # 차단 관련 DTO
+│       │   └── entities/          # BlockIp, BlockHp, BlockWord 엔티티
+│       │
 │       ├── boards/                # 게시판 (예정)
 │       │   └── entities/
 │       ├── codes/                 # 공통 코드 (예정)
 │       │   └── entities/
-│       ├── counsel/               # 상담 (예정)
-│       │   ├── entities/
-│       │   └── services/
-│       ├── security/              # 보안 로그 (예정)
-│       │   └── entities/
-│       └── websites/              # 웹사이트 관리 (예정)
-│           └── entities/
+│       └── counsel/               # 상담 (예정)
+│           ├── entities/
+│           └── services/
 │
 ├── test/                          # E2E 테스트
 ├── .env.development               # 개발 환경 변수
@@ -272,15 +290,17 @@ backend/
 
 ### 모듈별 역할
 
-| 모듈 | 역할 | 주요 기능 |
-|------|------|----------|
-| `auth` | 인증 | 회원가입, 로그인, 토큰 발급/갱신/폐기, 비밀번호 변경 |
-| `users` | 사용자 관리 | 사용자 CRUD, 페이지네이션, 상태 관리, 비밀번호 관리 |
-| `roles` | 역할 관리 | 역할 CRUD, 권한 할당, 사용자 할당 |
-| `rbac` | RBAC 권한 관리 | 페이지/액션/권한 CRUD, 권한 카탈로그 조회 |
-| `tenants` | 테넌트 관리 | 테넌트 CRUD, 상태 변경 (슈퍼 관리자 전용) |
-| `super` | 슈퍼 관리자 | 시스템 대시보드 통계 조회 |
-| `health` | 헬스체크 | 서버 상태, DB 연결 상태 확인 |
+| 모듈 | 역할 | 주요 기능 | 상태 |
+|------|------|----------|------|
+| `auth` | 인증 | 회원가입, 로그인, 토큰 발급/갱신/폐기, 비밀번호 변경 | ✅ 완료 |
+| `users` | 사용자 관리 | 사용자 CRUD, 페이지네이션, 상태 관리, 비밀번호 관리 | ✅ 완료 |
+| `roles` | 역할 관리 | 역할 CRUD, 권한 할당, 사용자 할당 | ✅ 완료 |
+| `rbac` | RBAC 권한 관리 | 페이지/액션/권한 CRUD, 권한 카탈로그 조회 | ✅ 완료 |
+| `tenants` | 테넌트 관리 | 테넌트 CRUD, 상태 변경 (슈퍼 관리자 전용) | ✅ 완료 |
+| `super` | 슈퍼 관리자 | 시스템 대시보드 통계 조회 | ✅ 완료 |
+| `health` | 헬스체크 | 서버 상태, DB 연결 상태 확인 | ✅ 완료 |
+| `websites` | 웹사이트 관리 | 상담 유입 웹사이트 CRUD, 상태 관리 | ✅ 완료 |
+| `security` | 보안(차단) 관리 | IP/휴대폰/금칙어 차단 CRUD, 대량 등록, 차단 여부 확인 | ✅ 완료 |
 
 ### 엔티티 위치 구조
 
@@ -291,6 +311,8 @@ backend/
 | `rbac/entities/` | Page, Action, Permission | RBAC 권한 카탈로그 |
 | `tenants/entities/` | Tenant, TenantStatus | 테넌트 정보 |
 | `auth/entities/` | RefreshToken | 리프레시 토큰 정보 |
+| `websites/entities/` | Website | 웹사이트 정보 |
+| `security/entities/` | BlockIp, BlockHp, BlockWord | 보안 차단 정보 |
 
 ### common 모듈 상세
 

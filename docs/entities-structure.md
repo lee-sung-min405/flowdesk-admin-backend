@@ -115,11 +115,30 @@
 
 **목적**: 악성 접근이나 스팸을 차단한다.
 
-| 엔티티 | 책임 |
-|--------|------|
-| BlockHp | 차단된 휴대전화 번호 |
-| BlockIp | 차단된 IP 주소 |
-| BlockWord | 차단된 키워드 |
+| 엔티티 | 책임 | 파일 위치 | API 구현 상태 |
+|--------|------|----------|--------------|
+| BlockHp | 차단된 휴대전화 번호 | `security/entities/block-hp.entity.ts` | ✅ 완료 |
+| BlockIp | 차단된 IP 주소 (IPv4/IPv6 지원) | `security/entities/block-ip.entity.ts` | ✅ 완료 |
+| BlockWord | 차단된 키워드 (EXACT/CONTAINS/REGEX 매칭) | `security/entities/block-word.entity.ts` | ✅ 완료 |
+
+**Security 모듈 API 기능**:
+- CRUD (목록 조회, 상세 조회, 등록, 수정, 삭제)
+- 대량 등록 (POST /bulk) - 줄바꿈/쉼표로 구분된 여러 항목 일괄 등록
+- 차단 여부 확인 (GET /check) - 특정 IP/휴대폰/텍스트가 차단되었는지 조회
+
+---
+
+### 웹사이트 관련 엔티티
+
+**목적**: 상담 유입 웹사이트를 관리한다.
+
+| 엔티티 | 책임 | 파일 위치 | API 구현 상태 |
+|--------|------|----------|--------------|
+| Website | 상담 유입 웹사이트 정보 관리 | `websites/entities/website.entity.ts` | ✅ 완료 |
+
+**Website 모듈 API 기능**:
+- CRUD (목록 조회, 상세 조회, 생성, 수정, 삭제)
+- 상태 변경 (PATCH /:webCode/status) - 활성/비활성 상태 변경
 
 ---
 
@@ -928,9 +947,150 @@ rbac/ <───────────────────────┘
 
 ### 모듈별 엔티티 분류
 
-| 분류 | 모듈 | 설명 |
+| 분류 | 모듈 | 설명 | API 구현 상태 |
+|------|------|------|--------------|
+| 테넌트 종속 | Users, Roles, Tenants | 테넌트별로 격리된 데이터 | ✅ 완료 |
+| 전역 카탈로그 | RBAC, Codes | 시스템 공통 마스터 데이터 | ✅ 완료 (RBAC) |
+| 인증 전용 | Auth | 토큰 관리 | ✅ 완료 |
+| 웹사이트 관리 | Websites | 상담 유입 웹사이트 | ✅ 완료 |
+| 보안 관리 | Security | IP/휴대폰/금칙어 차단 | ✅ 완료 |
+| 비즈니스 도메인 | Boards, Counsel, Codes | 게시판, 상담, 공통코드 | 🔜 예정 |
+
+---
+
+## 부록 F: Security 모듈 상세 명세
+
+### BlockIp (IP 차단)
+
+**파일**: `src/modules/security/entities/block-ip.entity.ts`  
+**테이블**: `block_ip`
+
+| 속성 | 타입 | 설명 |
 |------|------|------|
-| 테넌트 종속 | Users, Roles, Tenants | 테넌트별로 격리된 데이터 |
-| 전역 카탈로그 | RBAC, Codes | 시스템 공통 마스터 데이터 |
-| 인증 전용 | Auth | 토큰 관리 |
-| 비즈니스 도메인 | Boards, Counsel, Websites, Security | 향후 개발 예정 |
+| `dbiIdx` | PK, int | IP 차단 ID (AUTO_INCREMENT) |
+| `tenantId` | int | 테넌트 ID (FK → Tenant) |
+| `blockIp` | varchar(45) | 차단 IP (IPv4/IPv6 지원) |
+| `reason` | varchar(255) | 차단 사유 (nullable) |
+| `isActive` | tinyint | 활성 여부 (default: 1) |
+| `createdBy` | int | 등록자 userSeq |
+| `createdAt` | datetime | 등록일시 |
+| `updatedAt` | datetime | 수정일시 |
+
+**인덱스**: UNIQUE `[tenant_id, block_ip]`
+
+**API 엔드포인트**:
+| 메서드 | 경로 | 설명 | 권한 |
+|--------|------|------|------|
+| GET | `/security/block-ip` | 목록 조회 | `security.read` |
+| GET | `/security/block-ip/:id` | 상세 조회 | `security.read` |
+| GET | `/security/block-ip/check?ip=` | 차단 여부 확인 | `security.read` |
+| POST | `/security/block-ip` | 단건 등록 | `security.create` |
+| POST | `/security/block-ip/bulk` | 대량 등록 | `security.create` |
+| PATCH | `/security/block-ip/:id` | 수정 | `security.update` |
+| DELETE | `/security/block-ip/:id` | 삭제 | `security.delete` |
+
+---
+
+### BlockHp (휴대폰 차단)
+
+**파일**: `src/modules/security/entities/block-hp.entity.ts`  
+**테이블**: `block_hp`
+
+| 속성 | 타입 | 설명 |
+|------|------|------|
+| `dbhIdx` | PK, int | 휴대폰 차단 ID (AUTO_INCREMENT) |
+| `tenantId` | int | 테넌트 ID (FK → Tenant) |
+| `blockHp` | varchar(20) | 차단 휴대폰 번호 (하이픈 없이 저장) |
+| `reason` | varchar(255) | 차단 사유 (nullable) |
+| `isActive` | tinyint | 활성 여부 (default: 1) |
+| `createdBy` | int | 등록자 userSeq |
+| `createdAt` | datetime | 등록일시 |
+| `updatedAt` | datetime | 수정일시 |
+
+**인덱스**: UNIQUE `[tenant_id, block_hp]`
+
+**API 엔드포인트**:
+| 메서드 | 경로 | 설명 | 권한 |
+|--------|------|------|------|
+| GET | `/security/block-hp` | 목록 조회 | `security.read` |
+| GET | `/security/block-hp/:id` | 상세 조회 | `security.read` |
+| GET | `/security/block-hp/check?hp=` | 차단 여부 확인 | `security.read` |
+| POST | `/security/block-hp` | 단건 등록 | `security.create` |
+| POST | `/security/block-hp/bulk` | 대량 등록 | `security.create` |
+| PATCH | `/security/block-hp/:id` | 수정 | `security.update` |
+| DELETE | `/security/block-hp/:id` | 삭제 | `security.delete` |
+
+---
+
+### BlockWord (금칙어 차단)
+
+**파일**: `src/modules/security/entities/block-word.entity.ts`  
+**테이블**: `block_word`
+
+| 속성 | 타입 | 설명 |
+|------|------|------|
+| `dbwIdx` | PK, int | 금칙어 ID (AUTO_INCREMENT) |
+| `tenantId` | int | 테넌트 ID (FK → Tenant) |
+| `blockWord` | varchar(100) | 차단 단어 |
+| `matchType` | enum | 매칭 타입 (EXACT, CONTAINS, REGEX) |
+| `reason` | varchar(255) | 차단 사유 (nullable) |
+| `isActive` | tinyint | 활성 여부 (default: 1) |
+| `createdBy` | int | 등록자 userSeq |
+| `createdAt` | datetime | 등록일시 |
+| `updatedAt` | datetime | 수정일시 |
+
+**인덱스**: UNIQUE `[tenant_id, block_word, match_type]`
+
+**MatchType 설명**:
+| 타입 | 설명 | 예시 |
+|------|------|------|
+| EXACT | 정확히 일치 | "욕설" → "욕설"만 차단 |
+| CONTAINS | 포함 여부 | "욕설" → "이건욕설임" 차단 |
+| REGEX | 정규표현식 | "욕.*설" → "욕!설", "욕ㅅㅓㄹ" 차단 |
+
+**API 엔드포인트**:
+| 메서드 | 경로 | 설명 | 권한 |
+|--------|------|------|------|
+| GET | `/security/block-word` | 목록 조회 | `security.read` |
+| GET | `/security/block-word/:id` | 상세 조회 | `security.read` |
+| GET | `/security/block-word/check?text=` | 차단 여부 확인 | `security.read` |
+| POST | `/security/block-word` | 단건 등록 | `security.create` |
+| POST | `/security/block-word/bulk` | 대량 등록 | `security.create` |
+| PATCH | `/security/block-word/:id` | 수정 | `security.update` |
+| DELETE | `/security/block-word/:id` | 삭제 | `security.delete` |
+
+---
+
+## 부록 G: Websites 모듈 상세 명세
+
+### Website (웹사이트)
+
+**파일**: `src/modules/websites/entities/website.entity.ts`  
+**테이블**: `website`
+
+| 속성 | 타입 | 설명 |
+|------|------|------|
+| `tenantId` | PK, int | 테넌트 ID (FK → Tenant) |
+| `webCode` | PK, varchar(20) | 웹사이트 코드 |
+| `userSeq` | int | 담당자 userSeq (nullable) |
+| `webUrl` | varchar(300) | 웹사이트 URL |
+| `webTitle` | varchar(100) | 웹사이트 제목 |
+| `webImg` | varchar(300) | 이미지 URL (nullable) |
+| `webDesc` | text | 설명 (nullable) |
+| `webMemo` | text | 메모 (nullable) |
+| `isActive` | tinyint | 활성 여부 (default: 1) |
+| `duplicateAllowAfterDays` | int | 중복 허용 일수 (nullable) |
+| `createdAt` | datetime | 등록일시 |
+| `updatedAt` | datetime | 수정일시 |
+
+**복합 PK**: `[tenantId, webCode]`
+
+**API 엔드포인트**:
+| 메서드 | 경로 | 설명 | 권한 |
+|--------|------|------|------|
+| GET | `/websites` | 목록 조회 | `websites.read` |
+| GET | `/websites/:webCode` | 상세 조회 | `websites.read` |
+| POST | `/websites` | 생성 | `websites.create` |
+| PATCH | `/websites/:webCode` | 수정 | `websites.update` |
+| PATCH | `/websites/:webCode/status` | 상태 변경 | `websites.update` |
+| DELETE | `/websites/:webCode` | 삭제 | `websites.delete` |

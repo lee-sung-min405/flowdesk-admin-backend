@@ -656,7 +656,54 @@ flowchart LR
 | `/users/:userSeq/password` | PATCH | 비밀번호 변경 | ✅ | `users.update` |
 | `/users/:userSeq/invalidate-tokens` | POST | 강제 로그아웃 | ✅ | `users.update` |
 
-### 7.3 에러 코드
+### 7.3 웹사이트 관리 API
+
+| 엔드포인트 | 메서드 | 설명 | 인증 | 권한 |
+|-----------|--------|------|------|------|
+| `/websites` | GET | 웹사이트 목록 조회 | ✅ | `websites.read` |
+| `/websites/:webCode` | GET | 웹사이트 상세 조회 | ✅ | `websites.read` |
+| `/websites` | POST | 웹사이트 생성 | ✅ | `websites.create` |
+| `/websites/:webCode` | PATCH | 웹사이트 정보 수정 | ✅ | `websites.update` |
+| `/websites/:webCode/status` | PATCH | 웹사이트 상태 변경 | ✅ | `websites.update` |
+| `/websites/:webCode` | DELETE | 웹사이트 삭제 | ✅ | `websites.delete` |
+
+### 7.4 보안 관리 API (IP 차단)
+
+| 엔드포인트 | 메서드 | 설명 | 인증 | 권한 |
+|-----------|--------|------|------|------|
+| `/security/block-ip` | GET | IP 차단 목록 조회 | ✅ | `security.read` |
+| `/security/block-ip/:id` | GET | IP 차단 상세 조회 | ✅ | `security.read` |
+| `/security/block-ip/check` | GET | IP 차단 여부 확인 | ✅ | `security.read` |
+| `/security/block-ip` | POST | IP 차단 등록 | ✅ | `security.create` |
+| `/security/block-ip/bulk` | POST | IP 대량 차단 등록 | ✅ | `security.create` |
+| `/security/block-ip/:id` | PATCH | IP 차단 정보 수정 | ✅ | `security.update` |
+| `/security/block-ip/:id` | DELETE | IP 차단 삭제 | ✅ | `security.delete` |
+
+### 7.5 보안 관리 API (휴대폰 차단)
+
+| 엔드포인트 | 메서드 | 설명 | 인증 | 권한 |
+|-----------|--------|------|------|------|
+| `/security/block-hp` | GET | 휴대폰 차단 목록 조회 | ✅ | `security.read` |
+| `/security/block-hp/:id` | GET | 휴대폰 차단 상세 조회 | ✅ | `security.read` |
+| `/security/block-hp/check` | GET | 휴대폰 차단 여부 확인 | ✅ | `security.read` |
+| `/security/block-hp` | POST | 휴대폰 차단 등록 | ✅ | `security.create` |
+| `/security/block-hp/bulk` | POST | 휴대폰 대량 차단 등록 | ✅ | `security.create` |
+| `/security/block-hp/:id` | PATCH | 휴대폰 차단 정보 수정 | ✅ | `security.update` |
+| `/security/block-hp/:id` | DELETE | 휴대폰 차단 삭제 | ✅ | `security.delete` |
+
+### 7.6 보안 관리 API (금칙어 차단)
+
+| 엔드포인트 | 메서드 | 설명 | 인증 | 권한 |
+|-----------|--------|------|------|------|
+| `/security/block-word` | GET | 금칙어 목록 조회 | ✅ | `security.read` |
+| `/security/block-word/:id` | GET | 금칙어 상세 조회 | ✅ | `security.read` |
+| `/security/block-word/check` | GET | 금칙어 포함 여부 확인 | ✅ | `security.read` |
+| `/security/block-word` | POST | 금칙어 등록 | ✅ | `security.create` |
+| `/security/block-word/bulk` | POST | 금칙어 대량 등록 | ✅ | `security.create` |
+| `/security/block-word/:id` | PATCH | 금칙어 정보 수정 | ✅ | `security.update` |
+| `/security/block-word/:id` | DELETE | 금칙어 삭제 | ✅ | `security.delete` |
+
+### 7.7 에러 코드
 
 ```mermaid
 flowchart TB
@@ -2179,10 +2226,11 @@ curl -X POST http://localhost:3000/permissions/admin/pages \
 
 ---
 
-> **문서 버전**: 2.2  
-> **최종 수정일**: 2026-01-26  
+> **문서 버전**: 2.3  
+> **최종 수정일**: 2026-02-11  
 > **작성자**: FlowDesk Admin Team (Lee seong min)  
 > **변경 이력**:
+> - v2.3: Security 모듈 API 추가 (IP/휴대폰/금칙어 차단), Websites 모듈 API 추가
 > - v2.2: 12.1 추가 (3단계 권한 체계 이해 - 사용자 유형별 역할/권한 생성 흐름)
 > - v2.1: 12장 추가 (관리 플로우 시나리오 종합 - 5개 실무 시나리오)
 > - v2.0: Part 2 추가 (역할 관리, 권한 관리, 테넌트 관리, 슈퍼 관리자 대시보드)
