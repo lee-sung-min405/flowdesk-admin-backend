@@ -19,6 +19,7 @@ import {
 import { MenuTreeNodeDto } from './dto/me-response.dto';
 import { SignupDto } from './dto/signup.dto';
 import { SignupResponseDto } from './dto/signup-response.dto';
+import { UpdateMyProfileDto } from './dto/update-my-profile.dto';
 import { PermissionUtil } from '../../common/utils/permission.util';
 
 @Injectable()
@@ -42,7 +43,7 @@ export class AuthService {
   ) {}
 
   private toSafeUser(user: User) {
-    const { userPwd, ...rest } = user as any;
+    const { userPwd, tokenVersion, ...rest } = user as any;
     return rest;
   }
 
@@ -438,5 +439,29 @@ export class AuthService {
     await this.userRepository.save(user);
 
     this.logger.log(`Password changed for userSeq: ${userSeq}`);
+  }
+
+  async updateMyProfile(
+    tenantId: number,
+    userSeq: number,
+    dto: UpdateMyProfileDto,
+  ): Promise<User> {
+    const user = await this.userRepository.findOne({
+      where: { userSeq, tenantId },
+    });
+
+    if (!user) {
+      throw new AuthenticationException('User not found', { userSeq, tenantId });
+    }
+
+    if (dto.corpName !== undefined) user.corpName = dto.corpName;
+    if (dto.userName !== undefined) user.userName = dto.userName;
+    if (dto.userEmail !== undefined) user.userEmail = dto.userEmail;
+    if (dto.userTel !== undefined) user.userTel = dto.userTel;
+    if (dto.userHp !== undefined) user.userHp = dto.userHp;
+
+    const savedUser = await this.userRepository.save(user);
+
+    return this.toSafeUser(savedUser) as User;
   }
 }

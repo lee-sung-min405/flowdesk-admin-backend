@@ -1,4 +1,4 @@
-import { Controller, Post, Body, UseGuards, Get, Req, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Post, Body, UseGuards, Get, Req, HttpCode, HttpStatus, Patch } from '@nestjs/common';
 import { 
   ApiTags, 
   ApiOperation, 
@@ -23,7 +23,9 @@ import { RefreshRequestDto } from './dto/refresh-request.dto';
 import { RefreshResponseDto } from './dto/refresh-response.dto';
 import { LogoutDto } from './dto/logout.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { UpdateMyProfileDto } from './dto/update-my-profile.dto';
 import { StandardErrorResponseDto } from '../../common/dto/error-response.dto';
+import { User } from '../users/entities/user.entity';
 
 @ApiTags('Auth')
 @Controller('auth')
@@ -448,5 +450,49 @@ export class AuthController {
       dto.newPassword,
       dto.confirmPassword,
     );
+  }
+
+  @Patch('me/profile')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT')
+  @ApiOperation({ 
+    summary: '내 프로필 수정',
+    description: `로그인된 사용자가 자신의 기본 정보를 수정합니다.
+
+**수정 가능 필드:**
+- corpName: 회사명
+- userName: 사용자 이름
+- userEmail: 이메일
+- userTel: 전화번호
+- userHp: 휴대폰 번호
+
+**수정 불가:**
+- userId: 사용자 ID (변경 불가)
+- roleIds: 역할 (관리자만 변경 가능)
+- isActive: 활성 상태 (관리자만 변경 가능)
+- password: 비밀번호 (별도 API 사용)`,
+  })
+  @ApiBody({ 
+    description: '수정할 프로필 정보 (선택적 필드)', 
+    type: UpdateMyProfileDto,
+  })
+  @ApiOkResponse({ 
+    description: '프로필 수정 성공',
+    type: User,
+  })
+  @ApiBadRequestResponse({
+    description: '유효성 검사 실패 (VAL001) - 이메일 형식 오류, 최대 길이 초과 등',
+    type: StandardErrorResponseDto,
+  })
+  @ApiUnauthorizedResponse({ 
+    description: '인증 실패 (AUTH001) - 토큰 없음/만료/위조',
+    type: StandardErrorResponseDto,
+  })
+  async updateMyProfile(
+    @Req() req: any,
+    @Body() dto: UpdateMyProfileDto,
+  ): Promise<User> {
+    const { userSeq, tenantId } = req.user;
+    return this.authService.updateMyProfile(tenantId, userSeq, dto);
   }
 }
