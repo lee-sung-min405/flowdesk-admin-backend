@@ -28,13 +28,13 @@ export class PermissionsService {
   async getCatalog(tenantId: number): Promise<CatalogResponseDto> {
     const isSuperAdmin = tenantId === 1;
     
-    // 페이지 조회 (슈퍼 관리자가 아니면 super.* 제외)
+    // 페이지 조회 (슈퍼 관리자가 아니면 super로 시작하는 모든 페이지 제외)
     const pagesQuery = this.pageRepository
       .createQueryBuilder('page')
       .where('page.isActive = :isActive', { isActive: 1 });
     
     if (!isSuperAdmin) {
-      pagesQuery.andWhere('page.pageName NOT LIKE :superPrefix', { superPrefix: 'super.%' });
+      pagesQuery.andWhere('page.pageName NOT LIKE :superPattern', { superPattern: 'super%' });
     }
     
     const pages = await pagesQuery
@@ -49,7 +49,7 @@ export class PermissionsService {
       .orderBy('action.actionName', 'ASC')
       .getMany();
 
-    // 권한 조회 (슈퍼 관리자가 아니면 super.* 제외)
+    // 권한 조회 (슈퍼 관리자가 아니면 super로 시작하는 모든 페이지 제외)
     const permissionsQuery = this.permissionRepository
       .createQueryBuilder('permission')
       .innerJoinAndSelect('permission.page', 'page')
@@ -59,7 +59,7 @@ export class PermissionsService {
       .andWhere('action.isActive = :isActive', { isActive: 1 });
     
     if (!isSuperAdmin) {
-      permissionsQuery.andWhere('page.pageName NOT LIKE :superPrefix', { superPrefix: 'super.%' });
+      permissionsQuery.andWhere('page.pageName NOT LIKE :superPattern', { superPattern: 'super%' });
     }
     
     const permissions = await permissionsQuery.getMany();

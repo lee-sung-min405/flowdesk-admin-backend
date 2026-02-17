@@ -51,11 +51,21 @@ INSERT INTO pages (page_id, parent_id, page_name, path, display_name, descriptio
 (6, 1, 'super.permissions', '/permissions/admin/permissions', '권한 관리', 'RBAC 권한 CRUD', 1, 5),
 
 -- 테넌트 관리자용 페이지 (최상위)
-(7, NULL, 'roles', '/roles', '역할 관리', '역할 생성/수정/삭제 및 권한 할당', 1, 10),
-(8, NULL, 'users', '/users', '사용자 관리', '사용자 생성/수정/삭제 및 역할 할당', 1, 11),
-(9, NULL, 'permissions', '/permissions/catalog', '권한 카탈로그', '권한 목록 조회 (역할 할당용)', 1, 12),
-(10, NULL, 'tenants.status', '/tenants/status', '테넌트 상태 관리', '테넌트별 커스텀 상태 관리 (상담, 주문 등)', 1, 13),
-(11, NULL, 'websites', '/websites', '웹사이트 관리', '웹사이트 등록/수정/삭제 및 활성화 관리', 1, 14)
+-- 사용자 & 권한 관리 그룹 (부모 페이지)
+(12, NULL, 'user_management', '/user-management', '사용자 & 권한', '사용자, 역할, 권한 관리 메뉴 그룹', 1, 10),
+
+-- 사용자 & 권한 하위 페이지 (parent_id = 12)
+(7, 12, 'roles', '/roles', '역할', '역할 생성/수정/삭제 및 권한 할당', 1, 1),
+(8, 12, 'users', '/users', '사용자', '사용자 생성/수정/삭제 및 역할 할당', 1, 2),
+(9, 12, 'permissions', '/permissions/catalog', '권한 카탈로그', '권한 목록 조회 (역할 할당용)', 1, 3),
+
+-- 생성 및 시스템 관리 그룹 (부모 페이지)
+(13, NULL, 'system_management', '/system-management', '생성 및 시스템 관리', '테넌트 상태, 보안, 웹사이트 관리 메뉴 그룹', 1, 20),
+
+-- 생성 및 시스템 관리 하위 페이지 (parent_id = 13)
+(10, 13, 'tenants.status', '/tenants/status', '테넌트 상태', '테넌트별 커스텀 상태 관리 (상담, 주문 등)', 1, 1),
+(14, 13, 'security', '/security', '보안', 'IP, 전화번호, 단어 차단 등 보안 관리', 1, 2),
+(11, 13, 'websites', '/websites', '웹사이트', '웹사이트 등록/수정/삭제 및 활성화 관리', 1, 3)
 ON DUPLICATE KEY UPDATE display_name = VALUES(display_name), description = VALUES(description);
 
 -- ============================================================
@@ -92,6 +102,9 @@ INSERT INTO permissions (permission_id, page_id, action_id, display_name, descri
 (17, 6, 3, '권한 수정', 'RBAC 권한 수정', 1),
 (18, 6, 4, '권한 삭제', 'RBAC 권한 삭제', 1),
 
+-- user_management (부모 페이지 접근) - page_id = 12
+(36, 12, 1, '사용자 & 권한 메뉴 접근', '사용자 & 권한 관리 카테고리 접근', 1),
+
 -- roles (CRUD) - page_id = 7
 (19, 7, 1, '역할 조회', '역할 목록 및 상세 조회', 1),
 (20, 7, 2, '역할 생성', '새 역할 생성', 1),
@@ -107,11 +120,20 @@ INSERT INTO permissions (permission_id, page_id, action_id, display_name, descri
 -- permissions catalog (read만) - page_id = 9
 (27, 9, 1, '권한 카탈로그 조회', '역할에 할당할 권한 목록 조회', 1),
 
+-- system_management (부모 페이지 접근) - page_id = 13
+(37, 13, 1, '생성 및 시스템 관리 메뉴 접근', '생성 및 시스템 관리 카테고리 접근', 1),
+
 -- tenants.status (CRUD) - page_id = 10
 (28, 10, 1, '테넌트 상태 조회', '테넌트 커스텀 상태 목록 및 상세 조회', 1),
 (29, 10, 2, '테넌트 상태 생성', '새 테넌트 상태 생성', 1),
 (30, 10, 3, '테넌트 상태 수정', '테넌트 상태 정보 및 활성화 여부 수정', 1),
 (31, 10, 4, '테넌트 상태 삭제', '테넌트 상태 삭제', 1),
+
+-- security (CRUD) - page_id = 14
+(38, 14, 1, '보안 조회', 'IP, 전화번호, 단어 차단 목록 조회', 1),
+(39, 14, 2, '보안 생성', 'IP, 전화번호, 단어 차단 등록', 1),
+(40, 14, 3, '보안 수정', 'IP, 전화번호, 단어 차단 정보 수정', 1),
+(41, 14, 4, '보안 삭제', 'IP, 전화번호, 단어 차단 삭제', 1),
 
 -- websites (CRUD) - page_id = 11
 (32, 11, 1, '웹사이트 조회', '웹사이트 목록 및 상세 조회', 1),
@@ -124,16 +146,20 @@ ON DUPLICATE KEY UPDATE display_name = VALUES(display_name), description = VALUE
 -- 4. Tenants (테넌트 정의)
 -- ============================================================
 -- 시스템 테넌트 (슈퍼 관리자용, tenant_id = 1, tenant_name = 'system')
+-- 샘플 업체 테넌트 (tenant_id = 2)
 INSERT INTO tenants (tenant_id, tenant_name, display_name, domain, is_active) VALUES
-(1, 'system', '시스템 관리', 'system.flowdesk.com', 1)
+(1, 'system', '시스템 관리', 'system.flowdesk.com', 1),
+(2, 'demo_company', '데모 업체', 'demo.flowdesk.com', 1)
 ON DUPLICATE KEY UPDATE display_name = VALUES(display_name);
 
 -- ============================================================
 -- 5. Roles (역할 정의)
 -- ============================================================
 -- 슈퍼 관리자 역할 (시스템 테넌트 소속)
+-- 업체 관리자 역할 (업체 테넌트 소속)
 INSERT INTO roles (role_id, role_name, display_name, description, tenant_id, is_active) VALUES
-(1, 'super_admin', '슈퍼 관리자', '시스템 전체 관리 권한을 가진 최고 관리자', 1, 1)
+(1, 'super_admin', '슈퍼 관리자', '시스템 전체 관리 권한을 가진 최고 관리자', 1, 1),
+(2, 'tenant_admin', '업체 관리자', '업체 내 전체 관리 권한을 가진 관리자 (슈퍼 기능 제외)', 2, 1)
 ON DUPLICATE KEY UPDATE display_name = VALUES(display_name), description = VALUES(description);
 
 -- ============================================================
@@ -153,31 +179,57 @@ INSERT INTO role_permissions (role_id, permission_id) VALUES
 (1, 11), (1, 12), (1, 13), (1, 14),
 -- super.permissions (CRUD)
 (1, 15), (1, 16), (1, 17), (1, 18),
+-- user_management (부모 페이지 접근)
+(1, 36),
 -- roles (CRUD)
 (1, 19), (1, 20), (1, 21), (1, 22),
 -- users (CRUD)
 (1, 23), (1, 24), (1, 25), (1, 26),
 -- permissions catalog
 (1, 27),
+-- system_management (부모 페이지 접근)
+(1, 37),
 -- tenants.status (CRUD)
 (1, 28), (1, 29), (1, 30), (1, 31),
+-- security (CRUD)
+(1, 38), (1, 39), (1, 40), (1, 41),
 -- websites (CRUD)
-(1, 32), (1, 33), (1, 34), (1, 35)
+(1, 32), (1, 33), (1, 34), (1, 35),
+
+-- 업체 관리자 권한 (super.* 제외)
+-- user_management (부모 페이지 접근)
+(2, 36),
+-- roles (CRUD)
+(2, 19), (2, 20), (2, 21), (2, 22),
+-- users (CRUD)
+(2, 23), (2, 24), (2, 25), (2, 26),
+-- permissions catalog
+(2, 27),
+-- system_management (부모 페이지 접근)
+(2, 37),
+-- tenants.status (CRUD)
+(2, 28), (2, 29), (2, 30), (2, 31),
+-- security (CRUD)
+(2, 38), (2, 39), (2, 40), (2, 41),
+-- websites (CRUD)
+(2, 32), (2, 33), (2, 34), (2, 35)
 ON DUPLICATE KEY UPDATE role_id = VALUES(role_id);
 
 -- ============================================================
--- 7. Users (슈퍼 관리자 계정)
+-- 7. Users (관리자 계정)
 -- ============================================================
 -- 비밀번호: Admin123 (bcrypt 해시)
 INSERT INTO users (user_seq, user_id, user_pwd, corp_name, user_name, user_email, is_active, token_version, tenant_id) VALUES
-(1, 'admin', '$2b$10$9rA9MxvnnimvtGGbHkx5w.IDOw3oh0V1kGq4hEdKtuzcoVgrlHIP2', 'FlowDesk', '슈퍼 관리자', 'admin@flowdesk.com', 1, 0, 1)
+(1, 'admin', '$2b$10$9rA9MxvnnimvtGGbHkx5w.IDOw3oh0V1kGq4hEdKtuzcoVgrlHIP2', 'FlowDesk', '슈퍼 관리자', 'admin@flowdesk.com', 1, 0, 1),
+(2, 'tenant_admin', '$2b$10$9rA9MxvnnimvtGGbHkx5w.IDOw3oh0V1kGq4hEdKtuzcoVgrlHIP2', '데모 업체', '업체 관리자', 'tenant@demo.com', 1, 0, 2)
 ON DUPLICATE KEY UPDATE user_name = VALUES(user_name);
 
 -- ============================================================
 -- 8. User-Roles (사용자-역할 매핑)
 -- ============================================================
 INSERT INTO user_roles (user_seq, tenant_id, role_id) VALUES
-(1, 1, 1)  -- admin 사용자에게 super_admin 역할 부여
+(1, 1, 1),  -- admin 사용자에게 super_admin 역할 부여
+(2, 2, 2)   -- tenant_admin 사용자에게 tenant_admin 역할 부여
 ON DUPLICATE KEY UPDATE role_id = VALUES(role_id);
 
 -- ============================================================
@@ -250,14 +302,18 @@ JOIN tenants t ON ur.tenant_id = t.tenant_id;
 -- 완료 메시지
 -- ============================================================
 SELECT '✅ 초기 시드 데이터 생성 완료!' AS 'Status';
-SELECT 'admin / Admin123 로 로그인하세요.' AS 'Login Info';
+SELECT 'admin / Admin123 (슈퍼 관리자)' AS 'Login Info 1';
+SELECT 'tenant_admin / Admin123 (업체 관리자)' AS 'Login Info 2';
 
 -- ============================================================
--- 데이터 초기화 쿼리
+-- 데이터 초기화 쿼리 (주석 해제하여 사용)
 -- ============================================================
--- 데이터 초기화 (역순으로 삭제 - FK 제약)
--- TRUNCATE TABLE user_roles;
--- TRUNCATE TABLE role_permissions;
+-- 경고: 아래 쿼리를 실행하면 모든 데이터가 삭제됩니다!
+-- 
+-- 실행 방법:
+-- 1. 아래 주석을 해제
+-- 2. mysql -u [username] -p [database_name] < reset-seed.sql
+--
 -- SET FOREIGN_KEY_CHECKS = 0;
 -- TRUNCATE TABLE user_roles;
 -- TRUNCATE TABLE role_permissions;
@@ -266,7 +322,8 @@ SELECT 'admin / Admin123 로 로그인하세요.' AS 'Login Info';
 -- TRUNCATE TABLE permissions;
 -- TRUNCATE TABLE pages;
 -- TRUNCATE TABLE actions;
+-- TRUNCATE TABLE tenant_status;
 -- TRUNCATE TABLE tenants;
--- SET FOREIGN_KEY_CHECKS = 1;
 -- TRUNCATE TABLE refresh_tokens;
+-- SET FOREIGN_KEY_CHECKS = 1;
 
