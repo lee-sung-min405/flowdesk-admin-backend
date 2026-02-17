@@ -26,19 +26,75 @@ export class RoleResponseDto {
   updatedAt: Date;
 }
 
-export class RoleDetailResponseDto extends RoleResponseDto {
-  @ApiPropertyOptional({
-    description: '역할에 할당된 권한 목록',
-    type: 'array',
-    items: {
-      type: 'object',
-      properties: {
-        permissionId: { type: 'number', example: 1 },
-        displayName: { type: 'string', example: '대시보드 조회' },
-      },
-    },
+export class PermissionSummaryDto {
+  @ApiProperty({ description: '권한 ID', example: 1 })
+  permissionId: number;
+
+  @ApiProperty({ description: '권한 표시명', example: '슈퍼 대시보드 조회' })
+  displayName: string;
+
+  @ApiPropertyOptional({ description: '권한 설명', example: '시스템 전체 통계 조회' })
+  description: string | null;
+
+  @ApiProperty({ description: '액션 ID', example: 1 })
+  actionId: number;
+
+  @ApiProperty({ description: '액션명', example: 'read' })
+  actionName: string;
+
+  @ApiPropertyOptional({ description: '액션 표시명', example: '조회' })
+  actionDisplayName: string | null;
+}
+
+export class PagePermissionsDto {
+  @ApiProperty({ description: '페이지 ID', example: 2 })
+  pageId: number;
+
+  @ApiProperty({ description: '페이지명', example: 'super_dashboard' })
+  pageName: string;
+
+  @ApiPropertyOptional({ description: '페이지 표시명', example: '슈퍼 대시보드' })
+  pageDisplayName: string | null;
+
+  @ApiProperty({ 
+    description: '해당 페이지의 권한 목록', 
+    type: [PermissionSummaryDto] 
   })
-  rolePermissions?: any[];
+  permissions: PermissionSummaryDto[];
+}
+
+export class AssignedUserDto {
+  @ApiProperty({ description: '사용자 Seq', example: 1 })
+  userSeq: number;
+
+  @ApiProperty({ description: '사용자 ID', example: 'admin' })
+  userId: string;
+
+  @ApiProperty({ description: '사용자명', example: '홍길동' })
+  userName: string;
+
+  @ApiProperty({ description: '이메일', example: 'admin@example.com' })
+  email: string;
+
+  @ApiProperty({ description: '활성 상태 (1: 활성, 0: 비활성)', example: 1 })
+  isActive: number;
+
+  @ApiProperty({ description: '역할 할당일시', example: '2026-02-17T12:00:00.000Z' })
+  assignedAt: Date;
+}
+
+export class RoleDetailResponseDto extends RoleResponseDto {
+  @ApiProperty({
+    description: '역할에 할당된 권한 목록 (페이지별 그룹화)',
+    type: [PagePermissionsDto],
+  })
+  permissionsByPage: PagePermissionsDto[];
+
+  @ApiProperty({
+    description: '해당 역할에 할당된 사용자 목록',
+    type: [AssignedUserDto],
+  })
+  assignedUsers: AssignedUserDto[];
 }
 
 export class RolePermissionResponseDto {

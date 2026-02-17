@@ -52,7 +52,7 @@ async function bootstrap() {
       // === 테넌트 관리자용 ===
       .addTag('Users', '사용자 관리 API (테넌트 관리자)')
       .addTag('Roles', '역할 관리 API (테넌트 관리자, 역할 CRUD, 권한/사용자 할당)')
-      .addTag('Permissions', '권한 카탈로그 조회 API (테넌트 관리자)')
+      .addTag('Permissions', '권한 카탈로그 조회 API (역할 권한 할당용, 사용자별 자동 필터링)')
       // === 슈퍼 관리자 전용 ===
       .addTag('Super Admin (슈퍼 관리자 전용)', '슈퍼 관리자 대시보드 API (시스템 통계)')
       .addTag('Tenants (슈퍼 관리자 전용)', '테넌트 관리 API (멀티테넌시)')

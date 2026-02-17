@@ -274,4 +274,22 @@ export class UsersService {
 
     await this.userRepository.increment({ userSeq, tenantId }, 'tokenVersion', 1);
   }
+
+  async assignRolesToUser(userSeq: number, tenantId: number, roleIds: number[]): Promise<void> {
+    const user = await this.getUserById(tenantId, userSeq);
+
+    const existing = await this.userRoleRepository.find({ where: { userSeq, tenantId } });
+    const existingRoleIds = new Set(existing.map(ur => ur.roleId));
+    const newRoleIds = roleIds.filter(id => !existingRoleIds.has(id));
+    if (newRoleIds.length === 0) return;
+    const userRoles = newRoleIds.map(roleId => this.userRoleRepository.create({ userSeq, tenantId, roleId }));
+    await this.userRoleRepository.save(userRoles);
+  }
+
+  async unassignRolesFromUser(userSeq: number, tenantId: number, roleIds: number[]): Promise<void> {
+    const user = await this.getUserById(tenantId, userSeq);
+
+    if (!roleIds.length) return;
+    await this.userRoleRepository.delete({ userSeq, tenantId, roleId: In(roleIds) });
+  }
 }

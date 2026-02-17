@@ -8,6 +8,7 @@ import {
   Body,
   Param,
   Req,
+  Query,
   ParseIntPipe,
   HttpCode,
   HttpStatus,
@@ -17,6 +18,7 @@ import {
   ApiOperation,
   ApiResponse,
   ApiParam,
+  ApiQuery,
   ApiBearerAuth,
   ApiUnauthorizedResponse,
   ApiForbiddenResponse,
@@ -27,10 +29,9 @@ import { RequireAuth } from '../../common/decorators/require-auth.decorator';
 import { CreateRoleDto } from './dto/create-role.dto';
 import { UpdateRoleDto } from './dto/update-role.dto';
 import { UpdateRoleStatusDto } from './dto/update-role-status.dto';
-import { AssignPermissionsDto } from './dto/assign-permissions.dto';
 import { ModifyPermissionsDto } from './dto/modify-permissions.dto';
 import { CopyPermissionsDto } from './dto/copy-permissions.dto';
-import { AssignRolesDto } from './dto/assign-roles.dto';
+import { FindRolesResponseDto } from './dto/find-roles-response.dto';
 import { StandardErrorResponseDto } from '../../common/dto/error-response.dto';
 import { RoleResponseDto, RoleDetailResponseDto, RolePermissionResponseDto, RoleUserResponseDto } from './dto/role-response.dto';
 import { ModifyPermissionsResponseDto } from './dto/modify-permissions-response.dto';
@@ -56,15 +57,55 @@ export class RolesController {
 
   @Get()
   @RequireAuth('roles', 'read')
-  @ApiOperation({ summary: '역할 목록 조회', description: '현재 로그인한 사용자의 테넌트에 속한 역할 목록을 조회합니다.' })
+  @ApiOperation({ 
+    summary: '역할 목록 조회', 
+    description: `현재 로그인한 사용자의 테넌트에 속한 역할 목록을 조회합니다.
+
+**필터링:**
+- q: 검색어 (roleName, displayName, description에서 검색)
+- isActive: 활성 상태 (1: 활성, 0: 비활성)
+
+**정렬:**
+- sort: 정렬 필드 (roleId, roleName, displayName, createdAt, updatedAt)
+- order: 정렬 순서 (ASC, DESC)
+
+**페이지네이션:**
+- page: 페이지 번호 (기본값: 1)
+- limit: 페이지당 항목 수 (기본값: 20)
+
+**응답:**
+- items: 역할 목록 (userCount, permissionCount 포함)
+- pageInfo: 페이지네이션 정보` 
+  })
+  @ApiQuery({ name: 'page', required: false, type: Number, description: '페이지 번호 (기본값: 1)' })
+  @ApiQuery({ name: 'limit', required: false, type: Number, description: '페이지당 항목 수 (기본값: 20)' })
+  @ApiQuery({ name: 'q', required: false, type: String, description: '검색어' })
+  @ApiQuery({ name: 'isActive', required: false, type: Number, enum: [0, 1], description: '활성 상태' })
+  @ApiQuery({ name: 'sort', required: false, type: String, enum: ['roleId', 'roleName', 'displayName', 'createdAt', 'updatedAt'], description: '정렬 필드' })
+  @ApiQuery({ name: 'order', required: false, type: String, enum: ['ASC', 'DESC'], description: '정렬 순서' })
   @ApiResponse({
     status: 200,
     description: '역할 목록 조회 성공',
-    type: [RoleResponseDto],
+    type: FindRolesResponseDto,
   })
-  async findAll(@Req() request: AuthenticatedRequest) {
-    const tenantId = request.user.tenantId;
-    return this.rolesService.findRoles(tenantId);
+  async findAll(
+    @Req() request: AuthenticatedRequest,
+    @Query('page') page?: number,
+    @Query('limit') limit?: number,
+    @Query('q') q?: string,
+    @Query('isActive') isActive?: number,
+    @Query('sort') sort?: string,
+    @Query('order') order?: 'ASC' | 'DESC',
+  ) {
+    return this.rolesService.findRoles(
+      request.user.tenantId,
+      page,
+      limit,
+      q,
+      isActive,
+      sort,
+      order,
+    );
   }
 
   @Get(':id')
@@ -84,7 +125,7 @@ export class RolesController {
     @Req() request: AuthenticatedRequest,
     @Param('id', ParseIntPipe) id: number
   ) {
-    return this.rolesService.getRoleById(id, request.user.tenantId);
+    return this.rolesService.getRoleByIdWithPermissions(id, request.user.tenantId);
   }
 
   @Post()
@@ -161,22 +202,6 @@ export class RolesController {
     await this.rolesService.deleteRole(id, request.user.tenantId);
   }
 
-  @Get(':id/permissions')
-  @RequireAuth('roles', 'read')
-  @ApiOperation({ summary: '역할의 권한 목록 조회' })
-  @ApiParam({ name: 'id', type: Number, description: '역할 ID' })
-  @ApiResponse({
-    status: 200,
-    description: '역할의 권한 목록',
-    type: [RolePermissionResponseDto],
-  })
-  async getPermissions(
-    @Req() request: AuthenticatedRequest,
-    @Param('id', ParseIntPipe) id: number
-  ) {
-    return this.rolesService.getRolePermissions(id, request.user.tenantId);
-  }
-
   @Put(':id/permissions')
   @RequireAuth('roles', 'update')
   @ApiOperation({ 
@@ -228,50 +253,6 @@ export class RolesController {
       dto.add || [],
       dto.remove || [],
     );
-  }
-
-  @Get(':id/users')
-  @RequireAuth('roles', 'read')
-  @ApiOperation({ summary: '역할이 할당된 사용자 목록 조회' })
-  @ApiParam({ name: 'id', type: Number, description: '역할 ID' })
-  @ApiResponse({
-    status: 200,
-    description: '역할이 할당된 사용자 목록',
-    type: [RoleUserResponseDto],
-  })
-  async getRoleUsers(
-    @Req() request: AuthenticatedRequest,
-    @Param('id', ParseIntPipe) id: number
-  ) {
-    return this.rolesService.getRoleUsers(id, request.user.tenantId);
-  }
-
-  @Post('users/:userSeq/assign')
-  @RequireAuth('roles', 'update')
-  @ApiOperation({ summary: '사용자에게 역할 여러 개 배정' })
-  @ApiParam({ name: 'userSeq', type: Number, description: '사용자 Seq' })
-  @ApiResponse({ status: 200, description: '역할 배정 성공' })
-  async assignRolesToUser(
-    @Req() request: AuthenticatedRequest,
-    @Param('userSeq', ParseIntPipe) userSeq: number,
-    @Body() dto: import('./dto/assign-roles-to-user.dto').AssignRolesToUserDto,
-  ) {
-    await this.rolesService.assignRolesToUser(userSeq, request.user.tenantId, dto.roleIds);
-    return { success: true };
-  }
-
-  @Post('users/:userSeq/unassign')
-  @RequireAuth('roles', 'update')
-  @ApiOperation({ summary: '사용자에게서 역할 여러 개 해제' })
-  @ApiParam({ name: 'userSeq', type: Number, description: '사용자 Seq' })
-  @ApiResponse({ status: 200, description: '역할 해제 성공' })
-  async unassignRolesFromUser(
-    @Req() request: AuthenticatedRequest,
-    @Param('userSeq', ParseIntPipe) userSeq: number,
-    @Body() dto: import('./dto/assign-roles-to-user.dto').AssignRolesToUserDto,
-  ) {
-    await this.rolesService.unassignRolesFromUser(userSeq, request.user.tenantId, dto.roleIds);
-    return { success: true };
   }
 }
 

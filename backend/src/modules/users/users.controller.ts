@@ -23,6 +23,7 @@ import {
   ApiNotFoundResponse,
   ApiConflictResponse,
   ApiQuery,
+  ApiParam,
 } from '@nestjs/swagger';
 import type { Request } from 'express';
 import { UsersService } from './users.service';
@@ -31,6 +32,8 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UpdateUserStatusDto } from './dto/update-user-status.dto';
 import { UpdateUserPasswordDto } from './dto/update-user-password.dto';
+import { UpdateUserRolesDto } from './dto/update-user-roles.dto';
+import { UpdateUserRolesResponseDto } from './dto/update-user-roles-response.dto';
 import { User } from './entities/user.entity';
 import { UserListResponseDto } from './dto/user-list-response.dto';
 import { UserDetailResponseDto } from './dto/user-detail-response.dto';
@@ -45,7 +48,9 @@ interface AuthenticatedRequest extends Request {
 @ApiBearerAuth('JWT')
 @Controller('users')
 export class UsersController {
-  constructor(private readonly usersService: UsersService) {}
+  constructor(
+    private readonly usersService: UsersService,
+  ) {}
 
   @Get()
   @RequireAuth('users', 'read')
@@ -331,5 +336,71 @@ export class UsersController {
     @Param('id', ParseIntPipe) id: number,
   ): Promise<void> {
     return this.usersService.invalidateUserTokens(request.user.tenantId, id);
+  }
+
+  @Patch(':id/roles')
+  @RequireAuth('users', 'update')
+  @ApiOperation({ 
+    summary: '사용자의 역할 수정 (추가/제거)',
+    description: `사용자에게 역할을 추가하거나 제거합니다.
+
+**요청 본문:**
+- \`add\`: 추가할 역할 ID 배열 (선택)
+- \`remove\`: 제거할 역할 ID 배열 (선택)
+
+**동작:**
+- \`add\` 배열의 역할들은 사용자에게 추가됩니다 (이미 있는 역할은 무시)
+- \`remove\` 배열의 역할들은 사용자에게서 제거됩니다 (없는 역할은 무시)
+- 둘 다 생략하거나 빈 배열인 경우 아무 변경 없음
+
+**사용 예시:**
+\`\`\`json
+// 역할 추가만
+{ "add": [1, 2, 3] }
+
+// 역할 제거만
+{ "remove": [4, 5] }
+
+// 동시에 추가 및 제거
+{ "add": [1, 2], "remove": [3, 4] }
+\`\`\``
+  })
+  @ApiParam({ name: 'id', type: Number, description: '사용자 Seq' })
+  @ApiOkResponse({ 
+    description: '역할 수정 성공',
+    type: UpdateUserRolesResponseDto,
+  })
+  @ApiBadRequestResponse({
+    description: '잘못된 요청 (역할 ID가 유효하지 않음)',
+    type: StandardErrorResponseDto,
+  })
+  @ApiUnauthorizedResponse({
+    description: '인증 실패 (AUTH001)',
+    type: StandardErrorResponseDto,
+  })
+  @ApiForbiddenResponse({
+    description: '권한 없음 (AUTH101) - users:update 권한 필요',
+    type: StandardErrorResponseDto,
+  })
+  @ApiNotFoundResponse({
+    description: '사용자를 찾을 수 없음 (RES001)',
+    type: StandardErrorResponseDto,
+  })
+  async updateUserRoles(
+    @Req() request: AuthenticatedRequest,
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateUserRolesDto,
+  ): Promise<UpdateUserRolesResponseDto> {
+    const tenantId = request.user.tenantId;
+    
+    if (dto.add && dto.add.length > 0) {
+      await this.usersService.assignRolesToUser(id, tenantId, dto.add);
+    }
+    
+    if (dto.remove && dto.remove.length > 0) {
+      await this.usersService.unassignRolesFromUser(id, tenantId, dto.remove);
+    }
+    
+    return { success: true, message: '역할이 수정되었습니다.' };
   }
 }

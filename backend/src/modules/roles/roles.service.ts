@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In } from 'typeorm';
+import { Repository, In, Brackets } from 'typeorm';
 import { Role } from './entities/role.entity';
 import { UserRole } from './entities/user-role.entity';
 import { RolePermission } from './entities/role-permission.entity';
@@ -8,6 +8,7 @@ import { User } from '../users/entities/user.entity';
 import { CreateRoleDto } from './dto/create-role.dto';
 import { UpdateRoleDto } from './dto/update-role.dto';
 import { ModifyPermissionsResponseDto } from './dto/modify-permissions-response.dto';
+import { FindRolesResponseDto, RoleListItemDto, PageInfoDto } from './dto/find-roles-response.dto';
 import { 
   ResourceNotFoundException, 
   BusinessConflictException,
@@ -27,17 +28,88 @@ export class RolesService {
     private readonly userRepository: Repository<User>,
   ) {}
 
-  async findRoles(tenantId: number): Promise<Role[]> {
-    return this.roleRepository.find({
-      where: { tenantId },
-      order: { roleId: 'ASC' },
-    });
+  async findRoles(
+    tenantId: number,
+    page: number = 1,
+    limit: number = 20,
+    q?: string,
+    isActive?: number,
+    sort: string = 'roleId',
+    order: 'ASC' | 'DESC' = 'ASC',
+  ): Promise<FindRolesResponseDto> {
+    const queryBuilder = this.roleRepository
+      .createQueryBuilder('role')
+      .leftJoin('role.userRoles', 'userRole')
+      .leftJoin('role.rolePermissions', 'rolePermission')
+      .where('role.tenantId = :tenantId', { tenantId });
+
+    // 검색어 필터 (roleName, displayName, description)
+    if (q) {
+      queryBuilder.andWhere(
+        new Brackets(qb => {
+          qb.where('role.roleName LIKE :q', { q: `%${q}%` })
+            .orWhere('role.displayName LIKE :q', { q: `%${q}%` })
+            .orWhere('role.description LIKE :q', { q: `%${q}%` });
+        })
+      );
+    }
+
+    // 활성 상태 필터
+    if (isActive !== undefined) {
+      queryBuilder.andWhere('role.isActive = :isActive', { isActive });
+    }
+
+    // 전체 개수 조회 (페이지네이션용)
+    const totalItems = await queryBuilder.getCount();
+
+    // 정렬
+    const allowedSortFields = ['roleId', 'roleName', 'displayName', 'createdAt', 'updatedAt'];
+    const sortField = allowedSortFields.includes(sort) ? sort : 'roleId';
+    queryBuilder.orderBy(`role.${sortField}`, order);
+
+    // 페이지네이션
+    const skip = (page - 1) * limit;
+    queryBuilder.skip(skip).take(limit);
+
+    // COUNT 집계 추가
+    queryBuilder
+      .select([
+        'role',
+        'COUNT(DISTINCT userRole.userSeq) as userCount',
+        'COUNT(DISTINCT rolePermission.permissionId) as permissionCount'
+      ])
+      .groupBy('role.roleId');
+
+    const result = await queryBuilder.getRawAndEntities();
+
+    const items: RoleListItemDto[] = result.entities.map((role, index) => ({
+      roleId: role.roleId,
+      roleName: role.roleName,
+      displayName: role.displayName,
+      description: role.description,
+      isActive: role.isActive,
+      createdAt: role.createdAt,
+      updatedAt: role.updatedAt,
+      tenantId: role.tenantId,
+      userCount: parseInt(result.raw[index].userCount || '0'),
+      permissionCount: parseInt(result.raw[index].permissionCount || '0'),
+    }));
+
+    const totalPages = Math.ceil(totalItems / limit);
+
+    const pageInfo: PageInfoDto = {
+      currentPage: page,
+      pageSize: limit,
+      totalItems,
+      totalPages,
+    };
+
+    return { items, pageInfo };
   }
 
   async findRoleById(roleId: number, tenantId: number): Promise<Role | null> {
     return this.roleRepository.findOne({
       where: { roleId, tenantId },
-      relations: { rolePermissions: { permission: true } }
     });
   }
 
@@ -51,6 +123,85 @@ export class RolesService {
       );
     }
     return role;
+  }
+
+  async getRoleByIdWithPermissions(roleId: number, tenantId: number) {
+    const role = await this.roleRepository.findOne({
+      where: { roleId, tenantId },
+      relations: { 
+        rolePermissions: { 
+          permission: { 
+            page: true, 
+            action: true 
+          } 
+        },
+        userRoles: {
+          user: true
+        }
+      }
+    });
+    if (!role) {
+      throw new ResourceNotFoundException(
+        `역할 ID ${roleId}를 찾을 수 없습니다 (tenantId: ${tenantId}, DB 조회 실패)`,
+        `역할 ID ${roleId}를 찾을 수 없습니다`,
+        { roleId, tenantId }
+      );
+    }
+
+    // 페이지별로 권한 그룹화 (page, action 정보 포함)
+    const permissionsByPageMap = new Map<number, { pageName: string; pageDisplayName: string | null; permissions: any[] }>();
+    
+    role.rolePermissions?.forEach(rp => {
+      const pageId = rp.permission.pageId;
+      if (!permissionsByPageMap.has(pageId)) {
+        permissionsByPageMap.set(pageId, {
+          pageName: rp.permission.page.pageName,
+          pageDisplayName: rp.permission.page.displayName,
+          permissions: []
+        });
+      }
+      permissionsByPageMap.get(pageId)!.permissions.push({
+        permissionId: rp.permission.permissionId,
+        displayName: rp.permission.displayName,
+        description: rp.permission.description,
+        actionId: rp.permission.actionId,
+        actionName: rp.permission.action.actionName,
+        actionDisplayName: rp.permission.action.displayName,
+      });
+    });
+
+    // Map을 배열로 변환 및 정렬
+    const permissionsByPage = Array.from(permissionsByPageMap.entries())
+      .map(([pageId, data]) => ({
+        pageId,
+        pageName: data.pageName,
+        pageDisplayName: data.pageDisplayName,
+        permissions: data.permissions.sort((a, b) => a.actionId - b.actionId), // actionId 순으로 정렬
+      }))
+      .sort((a, b) => a.pageId - b.pageId); // pageId 순으로 정렬
+
+    // 할당된 사용자 목록 정리
+    const assignedUsers = role.userRoles?.map(ur => ({
+      userSeq: ur.user.userSeq,
+      userId: ur.user.userId,
+      userName: ur.user.userName,
+      email: ur.user.userEmail,
+      isActive: ur.user.isActive,
+      assignedAt: ur.createdAt,
+    })) || [];
+
+    return {
+      roleId: role.roleId,
+      roleName: role.roleName,
+      displayName: role.displayName,
+      description: role.description,
+      isActive: role.isActive,
+      createdAt: role.createdAt,
+      updatedAt: role.updatedAt,
+      tenantId: role.tenantId,
+      permissionsByPage,
+      assignedUsers
+    };
   }
 
   async create(dto: CreateRoleDto, tenantId: number): Promise<Role> {
@@ -202,81 +353,4 @@ export class RolesService {
     };
   }
 
-  async findRolePermissions(roleId: number, tenantId: number): Promise<RolePermission[] | null> {
-    const role = await this.findRoleById(roleId, tenantId);
-    if (!role) return null;
-    return this.rolePermissionRepository.find({
-      where: { roleId },
-      relations: { permission: { page: true, action: true } }
-    });
-  }
-
-  async getRolePermissions(roleId: number, tenantId: number): Promise<RolePermission[]> {
-    const role = await this.findRoleById(roleId, tenantId);
-    if (!role) {
-      throw new ResourceNotFoundException(
-        `역할 ID ${roleId}를 찾을 수 없습니다 (tenantId: ${tenantId}, DB 조회 실패)`,
-        `역할 ID ${roleId}를 찾을 수 없습니다`,
-        { roleId, tenantId }
-      );
-    }
-    return this.rolePermissionRepository.find({
-      where: { roleId },
-      relations: { permission: { page: true, action: true } }
-    });
-  }
-
-  async findRoleUsers(roleId: number, tenantId: number): Promise<UserRole[] | null> {
-    const role = await this.findRoleById(roleId, tenantId);
-    if (!role) return null;
-    return this.userRoleRepository.find({
-      where: { roleId },
-      relations: { user: true }
-    });
-  }
-
-  async getRoleUsers(roleId: number, tenantId: number): Promise<UserRole[]> {
-    const role = await this.findRoleById(roleId, tenantId);
-    if (!role) {
-      throw new ResourceNotFoundException(
-        `역할 ID ${roleId}를 찾을 수 없습니다 (tenantId: ${tenantId}, DB 조회 실패)`,
-        `역할 ID ${roleId}를 찾을 수 없습니다`,
-        { roleId, tenantId }
-      );
-    }
-    return this.userRoleRepository.find({
-      where: { roleId },
-      relations: { user: true }
-    });
-  }
-
-  async assignRolesToUser(userSeq: number, tenantId: number, roleIds: number[]): Promise<void> {
-    const user = await this.userRepository.findOne({ where: { userSeq, tenantId } });
-    if (!user) {
-      throw new ResourceNotFoundException(
-        `사용자 Seq ${userSeq}를 찾을 수 없습니다 (tenantId: ${tenantId}, DB 조회 실패)`,
-        `사용자 Seq ${userSeq}를 찾을 수 없습니다`,
-        { userSeq, tenantId }
-      );
-    }
-    const existing = await this.userRoleRepository.find({ where: { userSeq, tenantId } });
-    const existingRoleIds = new Set(existing.map(ur => ur.roleId));
-    const newRoleIds = roleIds.filter(id => !existingRoleIds.has(id));
-    if (newRoleIds.length === 0) return;
-    const userRoles = newRoleIds.map(roleId => this.userRoleRepository.create({ userSeq, tenantId, roleId }));
-    await this.userRoleRepository.save(userRoles);
-  }
-
-  async unassignRolesFromUser(userSeq: number, tenantId: number, roleIds: number[]): Promise<void> {
-    const user = await this.userRepository.findOne({ where: { userSeq, tenantId } });
-    if (!user) {
-      throw new ResourceNotFoundException(
-        `사용자 Seq ${userSeq}를 찾을 수 없습니다 (tenantId: ${tenantId}, DB 조회 실패)`,
-        `사용자 Seq ${userSeq}를 찾을 수 없습니다`,
-        { userSeq, tenantId }
-      );
-    }
-    if (!roleIds.length) return;
-    await this.userRoleRepository.delete({ userSeq, tenantId, roleId: In(roleIds) });
-  }
 }

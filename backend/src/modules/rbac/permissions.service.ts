@@ -25,10 +25,19 @@ export class PermissionsService {
     private readonly permissionRepository: Repository<Permission>,
   ) {}
 
-  async getCatalog(): Promise<CatalogResponseDto> {
-    const pages = await this.pageRepository
+  async getCatalog(tenantId: number): Promise<CatalogResponseDto> {
+    const isSuperAdmin = tenantId === 1;
+    
+    // 페이지 조회 (슈퍼 관리자가 아니면 super.* 제외)
+    const pagesQuery = this.pageRepository
       .createQueryBuilder('page')
-      .where('page.isActive = :isActive', { isActive: 1 })
+      .where('page.isActive = :isActive', { isActive: 1 });
+    
+    if (!isSuperAdmin) {
+      pagesQuery.andWhere('page.pageName NOT LIKE :superPrefix', { superPrefix: 'super.%' });
+    }
+    
+    const pages = await pagesQuery
       .orderBy('CASE WHEN page.sortOrder IS NULL THEN 1 ELSE 0 END', 'ASC')
       .addOrderBy('page.sortOrder', 'ASC')
       .addOrderBy('page.pageName', 'ASC')
@@ -40,14 +49,20 @@ export class PermissionsService {
       .orderBy('action.actionName', 'ASC')
       .getMany();
 
-    const permissions = await this.permissionRepository
+    // 권한 조회 (슈퍼 관리자가 아니면 super.* 제외)
+    const permissionsQuery = this.permissionRepository
       .createQueryBuilder('permission')
       .innerJoinAndSelect('permission.page', 'page')
       .innerJoinAndSelect('permission.action', 'action')
       .where('permission.isActive = :isActive', { isActive: 1 })
       .andWhere('page.isActive = :isActive', { isActive: 1 })
-      .andWhere('action.isActive = :isActive', { isActive: 1 })
-      .getMany();
+      .andWhere('action.isActive = :isActive', { isActive: 1 });
+    
+    if (!isSuperAdmin) {
+      permissionsQuery.andWhere('page.pageName NOT LIKE :superPrefix', { superPrefix: 'super.%' });
+    }
+    
+    const permissions = await permissionsQuery.getMany();
 
     const pagesDto: PageDto[] = pages.map((page) => ({
       pageId: page.pageId,
@@ -100,8 +115,6 @@ export class PermissionsService {
         return orderA - orderB;
       });
     }
-
-    this.logger.log(`Catalog retrieved: ${pages.length} pages, ${actions.length} actions, ${permissions.length} permissions`);
 
     return {
       pages: pagesDto,
