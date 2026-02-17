@@ -1,10 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, Brackets } from 'typeorm';
 import { Tenant } from './entities/tenant.entity';
 import { User } from '../users/entities/user.entity';
 import { CreateTenantDto } from './dto/create-tenant.dto';
 import { UpdateTenantDto } from './dto/update-tenant.dto';
+import { FindTenantsResponseDto, TenantListItemDto, PageInfoDto } from './dto/find-tenants-response.dto';
 import {
   ResourceNotFoundException,
   BusinessConflictException,
@@ -20,10 +21,77 @@ export class TenantsService {
     private readonly userRepository: Repository<User>,
   ) {}
 
-  async findTenants(): Promise<Tenant[]> {
-    return this.tenantRepository.find({
-      order: { tenantId: 'ASC' },
-    });
+  async findTenants(
+    page: number = 1,
+    limit: number = 20,
+    q?: string,
+    isActive?: number,
+    sort: string = 'tenantId',
+    order: 'ASC' | 'DESC' = 'ASC',
+  ): Promise<FindTenantsResponseDto> {
+    const queryBuilder = this.tenantRepository
+      .createQueryBuilder('tenant')
+      .leftJoin(User, 'user', 'user.tenantId = tenant.tenantId');
+
+    // 검색어 필터 (tenantName, displayName, domain)
+    if (q) {
+      queryBuilder.andWhere(
+        new Brackets(qb => {
+          qb.where('tenant.tenantName LIKE :q', { q: `%${q}%` })
+            .orWhere('tenant.displayName LIKE :q', { q: `%${q}%` })
+            .orWhere('tenant.domain LIKE :q', { q: `%${q}%` });
+        })
+      );
+    }
+
+    // 활성 상태 필터
+    if (isActive !== undefined) {
+      queryBuilder.andWhere('tenant.isActive = :isActive', { isActive });
+    }
+
+    // 전체 개수 조회 (페이지네이션용)
+    const totalItems = await queryBuilder.getCount();
+
+    // 정렬
+    const allowedSortFields = ['tenantId', 'tenantName', 'displayName', 'createdAt', 'updatedAt'];
+    const sortField = allowedSortFields.includes(sort) ? sort : 'tenantId';
+    queryBuilder.orderBy(`tenant.${sortField}`, order);
+
+    // 페이지네이션
+    const skip = (page - 1) * limit;
+    queryBuilder.skip(skip).take(limit);
+
+    // COUNT 집계 추가
+    queryBuilder
+      .select([
+        'tenant',
+        'COUNT(DISTINCT user.userSeq) as userCount'
+      ])
+      .groupBy('tenant.tenantId');
+
+    const result = await queryBuilder.getRawAndEntities();
+
+    const items: TenantListItemDto[] = result.entities.map((tenant, index) => ({
+      tenantId: tenant.tenantId,
+      tenantName: tenant.tenantName,
+      displayName: tenant.displayName,
+      domain: tenant.domain,
+      isActive: tenant.isActive,
+      createdAt: tenant.createdAt,
+      updatedAt: tenant.updatedAt,
+      userCount: parseInt(result.raw[index].userCount || '0'),
+    }));
+
+    const totalPages = Math.ceil(totalItems / limit);
+
+    const pageInfo: PageInfoDto = {
+      currentPage: page,
+      pageSize: limit,
+      totalItems,
+      totalPages,
+    };
+
+    return { items, pageInfo };
   }
 
   async findTenantById(tenantId: number): Promise<Tenant | null> {
