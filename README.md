@@ -37,15 +37,15 @@ flowdesk-admin/
 
 ## 설계 문서
 
-아래 문서들은 구현 전에 작성된 설계 기준 문서다. 시스템의 의도와 제약 조건을 이해하려면 이 문서들을 참고하라.
+아래 문서들은 설계 의도와 현재 구현 상태를 반영한다. 시스템의 의도와 제약 조건을 이해하려면 이 문서들을 참고하라.
 
 | 문서 | 설명 |
 |------|------|
-| [사용자 플로우](./docs/user-flow.md) | 회원가입, 로그인, 팀원 관리 등 주요 시나리오 |
-| [온보딩 가이드](./docs/onboarding.md) | 서비스 최초 사용 흐름 |
-| [인증/권한 정책](./docs/auth.md) | JWT 인증, 토큰 정책, RBAC 권한 체계 |
+| [사용자 플로우](./docs/user-flow.md) | 회원가입, 로그인, 팀원 관리, RBAC 등 주요 시나리오 |
+| [온보딩 가이드](./docs/onboarding.md) | 서비스 최초 사용 흐름 (최소 성공 경로) |
+| [인증/권한 정책](./docs/auth.md) | JWT 인증, 토큰 정책, tokenVersion 기반 무효화, RBAC 권한 체계 |
 | [엔티티 구조](./docs/entities-structure.md) | 테넌트 격리 설계, 엔티티 관계 및 제약 조건 |
-| [Backend README](./backend/README.md) | 백엔드 서버 구조, 실행 방법, 개발 가이드 |
+| [Backend README](./backend/README.md) | 백엔드 서버 구조, API 목록, 실행 방법, 개발 가이드 |
 
 ---
 
@@ -53,9 +53,11 @@ flowdesk-admin/
 
 | 영역 | 기술 |
 |------|------|
-| Backend | NestJS, TypeORM, TypeScript |
-| Database | MySQL |
-| Auth | JWT, RBAC |
+| Backend | NestJS 11.x, TypeORM 0.3.x, TypeScript 5.x |
+| Database | MySQL 8.x |
+| Auth | JWT (Passport.js), bcrypt, tokenVersion 기반 강제 무효화 |
+| API Docs | Swagger (OpenAPI 3.0) |
+| Security | Rate Limiting (@nestjs/throttler), Helmet |
 | Frontend | React (구현 예정) |
 
 ---

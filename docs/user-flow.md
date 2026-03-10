@@ -641,8 +641,10 @@ flowchart LR
 | `/auth/login` | POST | 로그인 | ❌ | ❌ |
 | `/auth/refresh` | POST | 토큰 갱신 | ❌ | ❌ |
 | `/auth/logout` | POST | 로그아웃 (단일 토큰) | ✅ | ❌ |
-| `/auth/logout-all` | POST | 전체 로그아웃 | ✅ | ❌ |
-| `/auth/me` | GET | 내 정보 + 권한 조회 | ✅ | ❌ |
+| `/auth/logout-all` | POST | 전체 로그아웃 (tokenVersion 증가) | ✅ | ❌ |
+| `/auth/me` | GET | 내 정보 + 권한 + 메뉴트리 조회 | ✅ | ❌ |
+| `/auth/change-password` | POST | 비밀번호 변경 (본인) | ✅ | ❌ |
+| `/auth/me/profile` | PATCH | 내 프로필 수정 | ✅ | ❌ |
 
 ### 7.2 사용자 관리 API
 
@@ -655,6 +657,7 @@ flowchart LR
 | `/users/:userSeq/status` | PATCH | 활성/정지 상태 변경 | ✅ | `users.update` |
 | `/users/:userSeq/password` | PATCH | 비밀번호 변경 | ✅ | `users.update` |
 | `/users/:userSeq/invalidate-tokens` | POST | 강제 로그아웃 | ✅ | `users.update` |
+| `/users/:userSeq/roles` | PATCH | 사용자 역할 수정 (add/remove) | ✅ | `users.update` |
 
 ### 7.3 웹사이트 관리 API
 
@@ -1270,34 +1273,58 @@ Content-Type: application/json
 
 | 엔드포인트 | 메서드 | 설명 | 권한 |
 |-----------|--------|------|------|
-| `/permissions/admin/pages` | GET | 페이지 목록 조회 | `super.pages.read` |
-| `/permissions/admin/pages/:id` | GET | 페이지 상세 조회 | `super.pages.read` |
+| `/permissions/admin/pages` | GET | 페이지 목록 (page, limit, q, parentId, isActive, sort, order) | `super.pages.read` |
+| `/permissions/admin/pages/:id` | GET | 페이지 상세 (하위 페이지 포함) | `super.pages.read` |
 | `/permissions/admin/pages` | POST | 페이지 생성 | `super.pages.create` |
 | `/permissions/admin/pages/:id` | PATCH | 페이지 수정 | `super.pages.update` |
 | `/permissions/admin/pages/:id/status` | PATCH | 페이지 상태 변경 | `super.pages.update` |
 | `/permissions/admin/pages/:id` | DELETE | 페이지 삭제 | `super.pages.delete` |
 
+**Pages 목록 쿼리 파라미터:**
+- `page`, `limit`: 페이지네이션
+- `q`: Like 검색 (pageName, displayName, description)
+- `parentId`: `all`(전체), `null`(최상위만), 숫자(자식 페이지)
+- `isActive`: 0/1 상태 필터
+- `sort`: sortOrder(계층정렬), pageId, pageName, displayName, isActive, childCount, permissionCount
+- `order`: ASC/DESC
+
 #### 슈퍼 관리자 API (Actions)
 
 | 엔드포인트 | 메서드 | 설명 | 권한 |
 |-----------|--------|------|------|
-| `/permissions/admin/actions` | GET | 액션 목록 조회 | `super.actions.read` |
-| `/permissions/admin/actions/:id` | GET | 액션 상세 조회 | `super.actions.read` |
+| `/permissions/admin/actions` | GET | 액션 목록 (page, limit, q, isActive, sort, order) | `super.actions.read` |
+| `/permissions/admin/actions/:id` | GET | 액션 상세 | `super.actions.read` |
 | `/permissions/admin/actions` | POST | 액션 생성 | `super.actions.create` |
 | `/permissions/admin/actions/:id` | PATCH | 액션 수정 | `super.actions.update` |
 | `/permissions/admin/actions/:id/status` | PATCH | 액션 상태 변경 | `super.actions.update` |
 | `/permissions/admin/actions/:id` | DELETE | 액션 삭제 | `super.actions.delete` |
 
+**Actions 목록 쿼리 파라미터:**
+- `page`, `limit`: 페이지네이션
+- `q`: Like 검색 (actionName, displayName)
+- `isActive`: 0/1 상태 필터
+- `sort`: actionId, actionName, displayName, isActive, permissionCount
+- `order`: ASC/DESC
+
 #### 슈퍼 관리자 API (Permissions)
 
 | 엔드포인트 | 메서드 | 설명 | 권한 |
 |-----------|--------|------|------|
-| `/permissions/admin/permissions` | GET | 권한 목록 조회 | `super.permissions.read` |
-| `/permissions/admin/permissions/:id` | GET | 권한 상세 조회 | `super.permissions.read` |
+| `/permissions/admin/permissions` | GET | 권한 목록 (page, limit, q, pageId, actionId, isActive, sort, order) | `super.permissions.read` |
+| `/permissions/admin/permissions/:id` | GET | 권한 상세 | `super.permissions.read` |
 | `/permissions/admin/permissions` | POST | 권한 생성 | `super.permissions.create` |
 | `/permissions/admin/permissions/:id` | PATCH | 권한 수정 | `super.permissions.update` |
 | `/permissions/admin/permissions/:id/status` | PATCH | 권한 상태 변경 | `super.permissions.update` |
 | `/permissions/admin/permissions/:id` | DELETE | 권한 삭제 | `super.permissions.delete` |
+
+**Permissions 목록 쿼리 파라미터:**
+- `page`, `limit`: 페이지네이션
+- `q`: Like 검색 (displayName, description, pageName, actionName)
+- `pageId`: 특정 페이지의 권한만 조회
+- `actionId`: 특정 액션의 권한만 조회
+- `isActive`: 0/1 상태 필터
+- `sort`: permissionId, pageId, actionId, displayName, isActive
+- `order`: ASC/DESC
 
 ---
 

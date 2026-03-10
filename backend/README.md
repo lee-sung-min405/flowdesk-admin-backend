@@ -292,11 +292,11 @@ backend/
 
 | 모듈 | 역할 | 주요 기능 | 상태 |
 |------|------|----------|------|
-| `auth` | 인증 | 회원가입, 로그인, 토큰 발급/갱신/폐기, 비밀번호 변경 | ✅ 완료 |
-| `users` | 사용자 관리 | 사용자 CRUD, 페이지네이션, 상태 관리, 비밀번호 관리 | ✅ 완료 |
+| `auth` | 인증 | 회원가입, 로그인, 토큰 발급/갱신/폐기, 비밀번호 변경, 프로필 수정 | ✅ 완료 |
+| `users` | 사용자 관리 | 사용자 CRUD, 페이지네이션, 상태 관리, 비밀번호 관리, 역할 증분 수정 | ✅ 완료 |
 | `roles` | 역할 관리 | 역할 CRUD, 권한 할당, 사용자 할당 | ✅ 완료 |
-| `rbac` | RBAC 권한 관리 | 페이지/액션/권한 CRUD, 권한 카탈로그 조회 | ✅ 완료 |
-| `tenants` | 테넌트 관리 | 테넌트 CRUD, 상태 변경 (슈퍼 관리자 전용) | ✅ 완료 |
+| `rbac` | RBAC 권한 관리 | 페이지/액션/권한 CRUD (페이지네이션, 검색, 필터, 정렬), 권한 카탈로그 조회 | ✅ 완료 |
+| `tenants` | 테넌트 관리 | 테넌트 CRUD, 상태 변경, 커스텀 상태(TenantStatus) 관리 (슈퍼 관리자 전용) | ✅ 완료 |
 | `super` | 슈퍼 관리자 | 시스템 대시보드 통계 조회 | ✅ 완료 |
 | `health` | 헬스체크 | 서버 상태, DB 연결 상태 확인 | ✅ 완료 |
 | `websites` | 웹사이트 관리 | 상담 유입 웹사이트 CRUD, 상태 관리 | ✅ 완료 |
@@ -309,7 +309,7 @@ backend/
 | `users/entities/` | User | 사용자 정보 |
 | `roles/entities/` | Role, UserRole, RolePermission | 역할 및 매핑 정보 |
 | `rbac/entities/` | Page, Action, Permission | RBAC 권한 카탈로그 |
-| `tenants/entities/` | Tenant, TenantStatus | 테넌트 정보 |
+| `tenants/entities/` | Tenant, TenantStatus | 테넌트 정보 및 커스텀 상태 |
 | `auth/entities/` | RefreshToken | 리프레시 토큰 정보 |
 | `websites/entities/` | Website | 웹사이트 정보 |
 | `security/entities/` | BlockIp, BlockHp, BlockWord | 보안 차단 정보 |
@@ -357,7 +357,7 @@ backend/
 | `sub` | 사용자 고유 식별자 (userSeq) |
 | `tenantName` | 테넌트명 |
 | `userId` | 사용자 아이디 |
-| `tokenVersion` | 토큰 버전 (강제 무효화용) |
+| `tokenVersion` | 토큰 버전 (강제 무효화용 — DB의 tokenVersion과 비교하여 불일치 시 거부) |
 | `iat` | 발급 시간 |
 | `exp` | 만료 시간 |
 
@@ -858,6 +858,7 @@ npm run start:dev
 | `/auth/logout-all` | POST | 모든 기기에서 로그아웃 | ✅ | - |
 | `/auth/me` | GET | 현재 사용자 정보 및 권한 조회 | ✅ | menuTree 포함 |
 | `/auth/change-password` | POST | 비밀번호 변경 (본인) | ✅ | - |
+| `/auth/me/profile` | PATCH | 내 프로필 수정 (corpName, userName, userEmail, userTel, userHp) | ✅ | - |
 
 #### Users (사용자 관리)
 | 경로 | 메서드 | 용도 | 권한 |
@@ -869,6 +870,7 @@ npm run start:dev
 | `/users/:userSeq/status` | PATCH | 사용자 상태 변경 | users.update |
 | `/users/:userSeq/password` | PATCH | 사용자 비밀번호 변경 (관리자) | users.update |
 | `/users/:userSeq/invalidate-tokens` | POST | 토큰 무효화 (강제 로그아웃) | users.update |
+| `/users/:userSeq/roles` | PATCH | 역할 증분 수정 (add/remove) | users.update |
 
 #### Roles (역할 관리)
 | 경로 | 메서드 | 용도 | 권한 |
@@ -894,24 +896,29 @@ npm run start:dev
 #### Permissions Admin (페이지/액션/권한 관리 - 슈퍼 관리자 전용)
 | 경로 | 메서드 | 용도 | 권한 |
 |------|--------|------|------|
-| `/permissions/admin/pages` | GET | 페이지 목록 조회 | super.pages.read |
-| `/permissions/admin/pages/:id` | GET | 페이지 상세 조회 | super.pages.read |
+| `/permissions/admin/pages` | GET | 페이지 목록 (page, limit, q, parentId, isActive, sort, order) | super.pages.read |
+| `/permissions/admin/pages/:id` | GET | 페이지 상세 (하위 페이지 포함) | super.pages.read |
 | `/permissions/admin/pages` | POST | 페이지 생성 | super.pages.create |
 | `/permissions/admin/pages/:id` | PATCH | 페이지 수정 | super.pages.update |
 | `/permissions/admin/pages/:id/status` | PATCH | 페이지 상태 변경 | super.pages.update |
 | `/permissions/admin/pages/:id` | DELETE | 페이지 삭제 | super.pages.delete |
-| `/permissions/admin/actions` | GET | 액션 목록 조회 | super.actions.read |
+| `/permissions/admin/actions` | GET | 액션 목록 (page, limit, q, isActive, sort, order) | super.actions.read |
 | `/permissions/admin/actions/:id` | GET | 액션 상세 조회 | super.actions.read |
 | `/permissions/admin/actions` | POST | 액션 생성 | super.actions.create |
 | `/permissions/admin/actions/:id` | PATCH | 액션 수정 | super.actions.update |
 | `/permissions/admin/actions/:id/status` | PATCH | 액션 상태 변경 | super.actions.update |
 | `/permissions/admin/actions/:id` | DELETE | 액션 삭제 | super.actions.delete |
-| `/permissions/admin/permissions` | GET | 권한 목록 조회 | super.permissions.read |
+| `/permissions/admin/permissions` | GET | 권한 목록 (page, limit, q, pageId, actionId, isActive, sort, order) | super.permissions.read |
 | `/permissions/admin/permissions/:id` | GET | 권한 상세 조회 | super.permissions.read |
 | `/permissions/admin/permissions` | POST | 권한 생성 | super.permissions.create |
 | `/permissions/admin/permissions/:id` | PATCH | 권한 수정 | super.permissions.update |
 | `/permissions/admin/permissions/:id/status` | PATCH | 권한 상태 변경 | super.permissions.update |
 | `/permissions/admin/permissions/:id` | DELETE | 권한 삭제 | super.permissions.delete |
+
+> **Permissions Admin 목록 API 쿼리 파라미터 참고:**
+> - Pages: `q`(pageName/displayName/description Like), `parentId`(all/null/숫자), `isActive`(0/1), `sort`(sortOrder → 계층정렬, pageId, pageName, displayName, isActive, childCount, permissionCount)
+> - Actions: `q`(actionName/displayName Like), `isActive`(0/1), `sort`(actionId, actionName, displayName, isActive, permissionCount)
+> - Permissions: `q`(displayName/description/pageName/actionName Like), `pageId`, `actionId`, `isActive`(0/1), `sort`(permissionId, pageId, actionId, displayName, isActive)
 
 #### Tenants (테넌트 관리 - 슈퍼 관리자 전용)
 | 경로 | 메서드 | 용도 | 권한 |
@@ -922,6 +929,59 @@ npm run start:dev
 | `/tenants/:id` | PATCH | 테넌트 수정 | super.tenants.update |
 | `/tenants/:id/status` | PATCH | 테넌트 상태 변경 | super.tenants.update |
 | `/tenants/:id` | DELETE | 테넌트 삭제 | super.tenants.delete |
+
+#### Tenant Status (테넌트 커스텀 상태 관리)
+| 경로 | 메서드 | 용도 | 권한 |
+|------|--------|------|------|
+| `/tenants/:tenantId/statuses` | GET | 상태 목록 (statusGroup 그룹핑, q, isActive) | super.tenants.read |
+| `/tenants/:tenantId/statuses/:id` | GET | 상태 상세 | super.tenants.read |
+| `/tenants/:tenantId/statuses` | POST | 상태 생성 | super.tenants.create |
+| `/tenants/:tenantId/statuses/:id` | PATCH | 상태 수정 | super.tenants.update |
+| `/tenants/:tenantId/statuses/:id/status` | PATCH | 활성 여부 변경 | super.tenants.update |
+| `/tenants/:tenantId/statuses/:id` | DELETE | 상태 삭제 | super.tenants.delete |
+
+#### Websites (웹사이트 관리)
+| 경로 | 메서드 | 용도 | 권한 |
+|------|--------|------|------|
+| `/websites` | GET | 웹사이트 목록 (page, limit, q, isActive, sort, order) | websites.read |
+| `/websites/:webCode` | GET | 웹사이트 상세 | websites.read |
+| `/websites` | POST | 웹사이트 생성 | websites.create |
+| `/websites/:webCode` | PATCH | 웹사이트 수정 | websites.update |
+| `/websites/:webCode/status` | PATCH | 웹사이트 상태 변경 | websites.update |
+| `/websites/:webCode` | DELETE | 웹사이트 삭제 | websites.delete |
+
+#### Security - Block IP (IP 차단 관리)
+| 경로 | 메서드 | 용도 | 권한 |
+|------|--------|------|------|
+| `/security/block-ip` | GET | IP 차단 목록 (page, limit, q, isActive) | security.blockIp.read |
+| `/security/block-ip/:id` | GET | IP 차단 상세 | security.blockIp.read |
+| `/security/block-ip` | POST | IP 차단 등록 | security.blockIp.create |
+| `/security/block-ip/bulk` | POST | IP 대량 차단 등록 | security.blockIp.create |
+| `/security/block-ip/:id` | PATCH | IP 차단 수정 | security.blockIp.update |
+| `/security/block-ip/:id` | DELETE | IP 차단 삭제 | security.blockIp.delete |
+| `/security/block-ip/check` | GET | IP 차단 여부 확인 (query: ip) | security.blockIp.read |
+
+#### Security - Block HP (휴대폰 차단 관리)
+| 경로 | 메서드 | 용도 | 권한 |
+|------|--------|------|------|
+| `/security/block-hp` | GET | 휴대폰 차단 목록 (page, limit, q, isActive) | security.blockHp.read |
+| `/security/block-hp/:id` | GET | 휴대폰 차단 상세 | security.blockHp.read |
+| `/security/block-hp` | POST | 휴대폰 차단 등록 | security.blockHp.create |
+| `/security/block-hp/bulk` | POST | 휴대폰 대량 차단 등록 | security.blockHp.create |
+| `/security/block-hp/:id` | PATCH | 휴대폰 차단 수정 | security.blockHp.update |
+| `/security/block-hp/:id` | DELETE | 휴대폰 차단 삭제 | security.blockHp.delete |
+| `/security/block-hp/check` | GET | 휴대폰 차단 여부 확인 (query: hp) | security.blockHp.read |
+
+#### Security - Block Word (금칙어 관리)
+| 경로 | 메서드 | 용도 | 권한 |
+|------|--------|------|------|
+| `/security/block-word` | GET | 금칙어 목록 (page, limit, q, isActive, matchType) | security.blockWord.read |
+| `/security/block-word/:id` | GET | 금칙어 상세 | security.blockWord.read |
+| `/security/block-word` | POST | 금칙어 등록 (EXACT/CONTAINS/REGEX) | security.blockWord.create |
+| `/security/block-word/bulk` | POST | 금칙어 대량 등록 | security.blockWord.create |
+| `/security/block-word/:id` | PATCH | 금칙어 수정 | security.blockWord.update |
+| `/security/block-word/:id` | DELETE | 금칙어 삭제 | security.blockWord.delete |
+| `/security/block-word/check` | GET | 금칙어 포함 여부 확인 (query: text) | security.blockWord.read |
 
 #### Super Admin (슈퍼 관리자 전용 - 대시보드)
 | 경로 | 메서드 | 용도 | 권한 |

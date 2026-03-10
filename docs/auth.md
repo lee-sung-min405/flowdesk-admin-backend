@@ -78,9 +78,12 @@
 
 ### 토큰 무효화
 
-- 비밀번호 변경 시 기존 토큰이 무효화된다
-- 관리자가 특정 계정의 토큰을 강제 무효화할 수 있다
+- 전체 로그아웃(`/auth/logout-all`) 시 `tokenVersion`을 증가시켜 기존 액세스 토큰을 무효화한다
+- 관리자가 특정 사용자의 토큰을 강제 무효화할 수 있다 (`POST /users/:id/invalidate-tokens`)
 - 토큰 버전 불일치 시 인증이 거부된다
+- 로그인 및 토큰 갱신 시 DB의 최신 `tokenVersion`이 JWT에 포함된다
+
+> **구현 참고**: `login()` 시 DB에서 조회한 raw user 객체의 `tokenVersion`을 JWT payload에 직접 사용한다. `toSafeUser()`를 거치면 `tokenVersion`이 제거되므로, JWT 생성 전 반드시 raw user에서 값을 읽어야 한다.
 
 ### Rate Limiting (요청 횟수 제한)
 
@@ -224,6 +227,40 @@
 - `permissions`: 버튼 표시 제어, 라우터 가드
 - `menuTree`: 사이드바 메뉴 생성
 - `roles`: 역할 기반 UI 분기
+
+---
+
+## 6-1. Auth API 엔드포인트
+
+| 메서드 | 경로 | 설명 | 인증 | Rate Limit |
+|--------|------|------|------|------------|
+| POST | `/auth/signup` | 회원가입 (회사 + 관리자 생성) | ❌ | 3회/60초 |
+| POST | `/auth/login` | 로그인 | ❌ | 5회/60초 |
+| POST | `/auth/refresh` | 토큰 갱신 | ❌ | 10회/60초 |
+| POST | `/auth/logout` | 로그아웃 (단일 토큰 폐기) | ✅ | - |
+| POST | `/auth/logout-all` | 전체 로그아웃 (모든 토큰 무효화 + tokenVersion 증가) | ✅ | - |
+| GET | `/auth/me` | 내 정보 + 권한 + 메뉴트리 조회 | ✅ | - |
+| POST | `/auth/change-password` | 비밀번호 변경 (본인) | ✅ | - |
+| PATCH | `/auth/me/profile` | 내 프로필 수정 | ✅ | - |
+
+### `/auth/change-password` 처리 규칙
+
+1. 현재 비밀번호가 일치해야 한다
+2. 새 비밀번호와 확인 비밀번호가 일치해야 한다
+3. 새 비밀번호는 현재 비밀번호와 달라야 한다
+
+### `/auth/me/profile` 수정 가능 필드
+
+| 필드 | 수정 가능 |
+|------|----------|
+| corpName | ✅ |
+| userName | ✅ |
+| userEmail | ✅ |
+| userTel | ✅ |
+| userHp | ✅ |
+| userId | ❌ (변경 불가) |
+| password | ❌ (별도 API) |
+| roleIds | ❌ (관리자만 변경) |
 
 ---
 

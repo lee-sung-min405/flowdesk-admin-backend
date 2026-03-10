@@ -732,6 +732,11 @@ backend/src/modules/
 
 **권한 식별**: `{pageName}.{actionName}` (예: `users.read`, `roles.create`)
 
+**Permissions Admin API 기능** (슴퍼 관리자 전용):
+- Pages: 목록 조회 (페이지네이션, Like 검색, parentId 필터, 상태 필터, 계층 정렬), 상세 조회 (하위 페이지 포함), CRUD
+- Actions: 목록 조회 (페이지네이션, Like 검색, 상태 필터, permissionCount 집계), CRUD
+- Permissions: 목록 조회 (페이지네이션, Like 검색, pageId/actionId/상태 필터, 정렬), CRUD
+
 ---
 
 ### Tenants 모듈
@@ -950,7 +955,7 @@ rbac/ <───────────────────────┘
 | 분류 | 모듈 | 설명 | API 구현 상태 |
 |------|------|------|--------------|
 | 테넌트 종속 | Users, Roles, Tenants | 테넌트별로 격리된 데이터 | ✅ 완료 |
-| 전역 카탈로그 | RBAC, Codes | 시스템 공통 마스터 데이터 | ✅ 완료 (RBAC) |
+| 전역 카탈로그 | RBAC, Codes | 시스템 공통 마스터 데이터 | ✅ 완료 (RBAC - 페이지네이션/필터/정렬 지원) |
 | 인증 전용 | Auth | 토큰 관리 | ✅ 완료 |
 | 웹사이트 관리 | Websites | 상담 유입 웹사이트 | ✅ 완료 |
 | 보안 관리 | Security | IP/휴대폰/금칙어 차단 | ✅ 완료 |
