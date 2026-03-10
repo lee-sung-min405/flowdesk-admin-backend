@@ -31,12 +31,12 @@ import {
 import type { Request } from 'express';
 import { BlockWordService } from './block-word.service';
 import { RequireAuth } from '../../common/decorators/require-auth.decorator';
-import { CreateBlockWordDto } from './dto/create-block-word.dto';
-import { UpdateBlockWordDto } from './dto/update-block-word.dto';
-import { BlockWordResponseDto } from './dto/block-word-response.dto';
+import { CreateBlockWordDto } from './dto/block-word/create-block-word.dto';
+import { UpdateBlockWordDto } from './dto/block-word/update-block-word.dto';
+import { BlockWordResponseDto } from './dto/block-word/block-word-response.dto';
 import { BlockWordListResponseDto } from './dto/list-response.dto';
 import { CheckBlockedResponseDto } from './dto/check-blocked-response.dto';
-import { BulkCreateBlockWordDto, BulkCreateBlockWordResponseDto } from './dto/bulk-create-block-word.dto';
+import { BulkCreateBlockWordDto, BulkCreateBlockWordResponseDto } from './dto/block-word/bulk-create-block-word.dto';
 import { MatchType } from './entities/block-word.entity';
 import { StandardErrorResponseDto } from '../../common/dto/error-response.dto';
 import { SafeUser } from '../auth/types/safe-user.type';

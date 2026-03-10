@@ -1,6 +1,6 @@
 import { IsString, IsOptional, IsIn, IsEnum, MaxLength } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { MatchType } from '../entities/block-word.entity';
+import { MatchType } from '../../entities/block-word.entity';
 
 export class UpdateBlockWordDto {
   @ApiPropertyOptional({

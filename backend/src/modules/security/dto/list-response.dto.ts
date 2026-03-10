@@ -1,7 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { BlockIpResponseDto } from './block-ip-response.dto';
-import { BlockHpResponseDto } from './block-hp-response.dto';
-import { BlockWordResponseDto } from './block-word-response.dto';
+import { BlockIpResponseDto } from './block-ip/block-ip-response.dto';
+import { BlockHpResponseDto } from './block-hp/block-hp-response.dto';
+import { BlockWordResponseDto } from './block-word/block-word-response.dto';
 import { PageInfoDto } from './page-info.dto';
 
 export class BlockIpListResponseDto {

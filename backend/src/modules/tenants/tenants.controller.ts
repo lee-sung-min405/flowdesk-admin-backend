@@ -23,12 +23,12 @@ import {
 } from '@nestjs/swagger';
 import { TenantsService } from './tenants.service';
 import { RequireAuth } from '../../common/decorators/require-auth.decorator';
-import { CreateTenantDto } from './dto/create-tenant.dto';
-import { UpdateTenantDto } from './dto/update-tenant.dto';
-import { UpdateTenantStatusDto } from './dto/update-tenant-status.dto';
+import { CreateTenantDto } from './dto/tenant/create-tenant.dto';
+import { UpdateTenantDto } from './dto/tenant/update-tenant.dto';
+import { UpdateTenantStatusDto } from './dto/tenant-status/update-tenant-status.dto';
 import { StandardErrorResponseDto } from '../../common/dto/error-response.dto';
-import { TenantResponseDto } from './dto/tenant-response.dto';
-import { FindTenantsResponseDto } from './dto/find-tenants-response.dto';
+import { TenantResponseDto } from './dto/tenant/tenant-response.dto';
+import { FindTenantsResponseDto } from './dto/tenant/find-tenants-response.dto';
 
 @ApiTags('Tenants (슈퍼 관리자 전용)')
 @ApiBearerAuth('JWT')

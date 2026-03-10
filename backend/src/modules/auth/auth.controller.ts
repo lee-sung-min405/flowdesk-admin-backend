@@ -11,6 +11,7 @@ import {
   ApiForbiddenResponse,
   ApiNoContentResponse,
 } from '@nestjs/swagger';
+import type { Request } from 'express';
 import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
@@ -26,6 +27,11 @@ import { ChangePasswordDto } from './dto/change-password.dto';
 import { UpdateMyProfileDto } from './dto/update-my-profile.dto';
 import { StandardErrorResponseDto } from '../../common/dto/error-response.dto';
 import { User } from '../users/entities/user.entity';
+import { SafeUser } from './types/safe-user.type';
+
+interface AuthenticatedRequest extends Request {
+  user: SafeUser;
+}
 
 @ApiTags('Auth')
 @Controller('auth')
@@ -193,8 +199,8 @@ export class AuthController {
       },
     },
   })
-  async logout(@Req() req: any, @Body() dto: LogoutDto) {
-    const userSeq = req.user?.userSeq;
+  async logout(@Req() request: AuthenticatedRequest, @Body() dto: LogoutDto) {
+    const userSeq = request.user?.userSeq;
     await this.authService.revokeRefreshToken(dto.refreshToken, userSeq);
     return { ok: true };
   }
@@ -248,8 +254,8 @@ export class AuthController {
       },
     },
   })
-  async logoutAll(@Req() req: any) {
-    const userSeq = req.user?.userSeq;
+  async logoutAll(@Req() request: AuthenticatedRequest) {
+    const userSeq = request.user?.userSeq;
     if (!userSeq) return { ok: false };
     await this.authService.revokeAllRefreshTokens(userSeq, userSeq);
     return { ok: true };
@@ -367,16 +373,16 @@ export class AuthController {
       },
     },
   })
-  async me(@Req() req: any): Promise<MeResponseDto> {
-    const { permissions, ...user } = req.user;
-    
+  async me(@Req() request: AuthenticatedRequest): Promise<MeResponseDto> {
+    const { permissions, ...user } = request.user;
+
     const roles = await this.authService.getUserRoles(user.userSeq);
     const menuTree = await this.authService.getUserMenuTree(user.userSeq);
-    
+
     return {
       user,
       roles,
-      permissions,
+      permissions: permissions ?? {},
       menuTree,
     };
   }
@@ -439,10 +445,10 @@ export class AuthController {
     },
   })
   async changePassword(
-    @Req() req: any,
+    @Req() request: AuthenticatedRequest,
     @Body() dto: ChangePasswordDto,
   ): Promise<void> {
-    const { userSeq, tenantId } = req.user;
+    const { userSeq, tenantId } = request.user;
     await this.authService.changePassword(
       userSeq,
       tenantId,
@@ -489,10 +495,10 @@ export class AuthController {
     type: StandardErrorResponseDto,
   })
   async updateMyProfile(
-    @Req() req: any,
+    @Req() request: AuthenticatedRequest,
     @Body() dto: UpdateMyProfileDto,
   ): Promise<User> {
-    const { userSeq, tenantId } = req.user;
+    const { userSeq, tenantId } = request.user;
     return this.authService.updateMyProfile(tenantId, userSeq, dto);
   }
 }

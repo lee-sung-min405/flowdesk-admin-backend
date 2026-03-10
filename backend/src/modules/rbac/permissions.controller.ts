@@ -8,10 +8,16 @@ import {
   ApiForbiddenResponse,
   ApiInternalServerErrorResponse,
 } from '@nestjs/swagger';
+import type { Request } from 'express';
 import { PermissionsService } from './permissions.service';
 import { CatalogResponseDto } from './dto/catalog-response.dto';
 import { StandardErrorResponseDto } from '../../common/dto/error-response.dto';
 import { RequireAuth } from '../../common/decorators/require-auth.decorator';
+import { SafeUser } from '../auth/types/safe-user.type';
+
+interface AuthenticatedRequest extends Request {
+  user: SafeUser;
+}
 
 @ApiTags('Permissions')
 @ApiBearerAuth('JWT')
@@ -83,7 +89,7 @@ export class PermissionsController {
       },
     },
   })
-  async getCatalog(@Req() request: Request & { user: any }): Promise<CatalogResponseDto> {
+  async getCatalog(@Req() request: AuthenticatedRequest): Promise<CatalogResponseDto> {
     return this.permissionsService.getCatalog(request.user.tenantId);
   }
 }

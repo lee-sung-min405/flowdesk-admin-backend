@@ -31,12 +31,12 @@ import {
 import type { Request } from 'express';
 import { BlockIpService } from './block-ip.service';
 import { RequireAuth } from '../../common/decorators/require-auth.decorator';
-import { CreateBlockIpDto } from './dto/create-block-ip.dto';
-import { UpdateBlockIpDto } from './dto/update-block-ip.dto';
-import { BlockIpResponseDto } from './dto/block-ip-response.dto';
+import { CreateBlockIpDto } from './dto/block-ip/create-block-ip.dto';
+import { UpdateBlockIpDto } from './dto/block-ip/update-block-ip.dto';
+import { BlockIpResponseDto } from './dto/block-ip/block-ip-response.dto';
 import { BlockIpListResponseDto } from './dto/list-response.dto';
 import { CheckBlockedResponseDto } from './dto/check-blocked-response.dto';
-import { BulkCreateBlockIpDto, BulkCreateBlockIpResponseDto } from './dto/bulk-create-block-ip.dto';
+import { BulkCreateBlockIpDto, BulkCreateBlockIpResponseDto } from './dto/block-ip/bulk-create-block-ip.dto';
 import { StandardErrorResponseDto } from '../../common/dto/error-response.dto';
 import { SafeUser } from '../auth/types/safe-user.type';
 

@@ -30,10 +30,10 @@ import {
 import type { Request } from 'express';
 import { TenantStatusService } from './tenant-status.service';
 import { RequireAuth } from '../../common/decorators/require-auth.decorator';
-import { CreateTenantStatusDto } from './dto/create-tenant-status.dto';
-import { UpdateTenantStatusItemDto } from './dto/update-tenant-status-item.dto';
-import { UpdateTenantStatusActiveDto } from './dto/update-tenant-status-active.dto';
-import { TenantStatusResponseDto, TenantStatusGroupedResponseDto } from './dto/tenant-status-response.dto';
+import { CreateTenantStatusDto } from './dto/tenant-status/create-tenant-status.dto';
+import { UpdateTenantStatusItemDto } from './dto/tenant-status/update-tenant-status-item.dto';
+import { UpdateTenantStatusActiveDto } from './dto/tenant-status/update-tenant-status-active.dto';
+import { TenantStatusResponseDto, TenantStatusGroupedResponseDto } from './dto/tenant-status/tenant-status-response.dto';
 import { StandardErrorResponseDto } from '../../common/dto/error-response.dto';
 import { SafeUser } from '../auth/types/safe-user.type';
 

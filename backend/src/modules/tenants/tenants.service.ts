@@ -3,9 +3,9 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Brackets } from 'typeorm';
 import { Tenant } from './entities/tenant.entity';
 import { User } from '../users/entities/user.entity';
-import { CreateTenantDto } from './dto/create-tenant.dto';
-import { UpdateTenantDto } from './dto/update-tenant.dto';
-import { FindTenantsResponseDto, TenantListItemDto, PageInfoDto } from './dto/find-tenants-response.dto';
+import { CreateTenantDto } from './dto/tenant/create-tenant.dto';
+import { UpdateTenantDto } from './dto/tenant/update-tenant.dto';
+import { FindTenantsResponseDto, TenantListItemDto, PageInfoDto } from './dto/tenant/find-tenants-response.dto';
 import {
   ResourceNotFoundException,
   BusinessConflictException,

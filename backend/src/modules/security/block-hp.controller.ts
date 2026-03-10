@@ -31,12 +31,12 @@ import {
 import type { Request } from 'express';
 import { BlockHpService } from './block-hp.service';
 import { RequireAuth } from '../../common/decorators/require-auth.decorator';
-import { CreateBlockHpDto } from './dto/create-block-hp.dto';
-import { UpdateBlockHpDto } from './dto/update-block-hp.dto';
-import { BlockHpResponseDto } from './dto/block-hp-response.dto';
+import { CreateBlockHpDto } from './dto/block-hp/create-block-hp.dto';
+import { UpdateBlockHpDto } from './dto/block-hp/update-block-hp.dto';
+import { BlockHpResponseDto } from './dto/block-hp/block-hp-response.dto';
 import { BlockHpListResponseDto } from './dto/list-response.dto';
 import { CheckBlockedResponseDto } from './dto/check-blocked-response.dto';
-import { BulkCreateBlockHpDto, BulkCreateBlockHpResponseDto } from './dto/bulk-create-block-hp.dto';
+import { BulkCreateBlockHpDto, BulkCreateBlockHpResponseDto } from './dto/block-hp/bulk-create-block-hp.dto';
 import { StandardErrorResponseDto } from '../../common/dto/error-response.dto';
 import { SafeUser } from '../auth/types/safe-user.type';
 

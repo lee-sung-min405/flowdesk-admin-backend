@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { MatchType } from '../entities/block-word.entity';
+import { MatchType } from '../../entities/block-word.entity';
 
 export class BlockWordResponseDto {
   @ApiProperty({ description: '금칙어 ID', example: 1 })

@@ -2,8 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import { BlockHp } from './entities/block-hp.entity';
-import { CreateBlockHpDto } from './dto/create-block-hp.dto';
-import { UpdateBlockHpDto } from './dto/update-block-hp.dto';
+import { CreateBlockHpDto } from './dto/block-hp/create-block-hp.dto';
+import { UpdateBlockHpDto } from './dto/block-hp/update-block-hp.dto';
 import { BlockHpListResponseDto } from './dto/list-response.dto';
 import {
   BusinessConflictException,

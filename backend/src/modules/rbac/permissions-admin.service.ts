@@ -4,15 +4,15 @@ import { Repository } from 'typeorm';
 import { Page } from './entities/page.entity';
 import { Action } from './entities/action.entity';
 import { Permission } from './entities/permission.entity';
-import { CreatePageDto } from './dto/create-page.dto';
-import { UpdatePageDto } from './dto/update-page.dto';
-import { CreateActionDto } from './dto/create-action.dto';
-import { UpdateActionDto } from './dto/update-action.dto';
-import { CreatePermissionDto } from './dto/create-permission.dto';
-import { UpdatePermissionDto } from './dto/update-permission.dto';
-import { FindActionsResponseDto, ActionListItemDto } from './dto/find-actions-response.dto';
-import { FindPagesResponseDto, PageListItemDto } from './dto/find-pages-response.dto';
-import { FindPermissionsResponseDto, PermissionListItemDto } from './dto/find-permissions-response.dto';
+import { CreatePageDto } from './dto/page/create-page.dto';
+import { UpdatePageDto } from './dto/page/update-page.dto';
+import { CreateActionDto } from './dto/action/create-action.dto';
+import { UpdateActionDto } from './dto/action/update-action.dto';
+import { CreatePermissionDto } from './dto/permission/create-permission.dto';
+import { UpdatePermissionDto } from './dto/permission/update-permission.dto';
+import { FindActionsResponseDto, ActionListItemDto } from './dto/action/find-actions-response.dto';
+import { FindPagesResponseDto, PageListItemDto } from './dto/page/find-pages-response.dto';
+import { FindPermissionsResponseDto, PermissionListItemDto } from './dto/permission/find-permissions-response.dto';
 import { 
   ResourceNotFoundException, 
   BusinessConflictException,

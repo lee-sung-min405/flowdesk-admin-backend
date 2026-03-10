@@ -17,6 +17,7 @@ import { PermissionsModule } from './modules/rbac/permissions.module';
 import { RequestIdMiddleware } from './common/middleware/request-id.middleware';
 import { WebsitesModule } from './modules/websites/websites.module';
 import { SecurityModule } from './modules/security/security.module';
+import { BoardsModule } from './modules/boards/boards.module';
 
 @Module({
   imports: [
@@ -44,6 +45,7 @@ import { SecurityModule } from './modules/security/security.module';
     SuperModule,
     WebsitesModule,
     SecurityModule,
+    BoardsModule,
   ],
   controllers: [AppController],
   providers: [

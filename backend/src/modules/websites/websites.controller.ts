@@ -31,13 +31,11 @@ import {
 import type { Request } from 'express';
 import { WebsitesService } from './websites.service';
 import { RequireAuth } from '../../common/decorators/require-auth.decorator';
-import {
-  CreateWebsiteDto,
-  UpdateWebsiteDto,
-  UpdateWebsiteStatusDto,
-  WebsiteResponseDto,
-  WebsiteListResponseDto,
-} from './dto';
+import { CreateWebsiteDto } from './dto/create-website.dto';
+import { UpdateWebsiteDto } from './dto/update-website.dto';
+import { UpdateWebsiteStatusDto } from './dto/update-website-status.dto';
+import { WebsiteResponseDto } from './dto/website-response.dto';
+import { WebsiteListResponseDto } from './dto/website-list-response.dto';
 import { StandardErrorResponseDto } from '../../common/dto/error-response.dto';
 import { SafeUser } from '../auth/types/safe-user.type';
 

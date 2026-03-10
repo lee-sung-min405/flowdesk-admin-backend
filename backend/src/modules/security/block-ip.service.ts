@@ -2,8 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import { BlockIp } from './entities/block-ip.entity';
-import { CreateBlockIpDto } from './dto/create-block-ip.dto';
-import { UpdateBlockIpDto } from './dto/update-block-ip.dto';
+import { CreateBlockIpDto } from './dto/block-ip/create-block-ip.dto';
+import { UpdateBlockIpDto } from './dto/block-ip/update-block-ip.dto';
 import { BlockIpListResponseDto } from './dto/list-response.dto';
 import {
   BusinessConflictException,

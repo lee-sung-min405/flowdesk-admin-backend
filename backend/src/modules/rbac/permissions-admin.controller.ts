@@ -24,18 +24,20 @@ import {
 } from '@nestjs/swagger';
 import { PermissionsAdminService } from './permissions-admin.service';
 import { RequireAuth } from '../../common/decorators/require-auth.decorator';
-import { CreatePageDto } from './dto/create-page.dto';
-import { UpdatePageDto } from './dto/update-page.dto';
-import { CreateActionDto } from './dto/create-action.dto';
-import { UpdateActionDto } from './dto/update-action.dto';
-import { CreatePermissionDto } from './dto/create-permission.dto';
-import { UpdatePermissionDto } from './dto/update-permission.dto';
+import { CreatePageDto } from './dto/page/create-page.dto';
+import { UpdatePageDto } from './dto/page/update-page.dto';
+import { CreateActionDto } from './dto/action/create-action.dto';
+import { UpdateActionDto } from './dto/action/update-action.dto';
+import { CreatePermissionDto } from './dto/permission/create-permission.dto';
+import { UpdatePermissionDto } from './dto/permission/update-permission.dto';
 import { UpdateStatusDto } from './dto/update-status.dto';
-import { FindActionsResponseDto } from './dto/find-actions-response.dto';
-import { FindPagesResponseDto } from './dto/find-pages-response.dto';
-import { FindPermissionsResponseDto } from './dto/find-permissions-response.dto';
+import { FindActionsResponseDto } from './dto/action/find-actions-response.dto';
+import { FindPagesResponseDto } from './dto/page/find-pages-response.dto';
+import { FindPermissionsResponseDto } from './dto/permission/find-permissions-response.dto';
 import { StandardErrorResponseDto } from '../../common/dto/error-response.dto';
-import { PageResponseDto, ActionResponseDto, PermissionResponseDto } from './dto/page-response.dto';
+import { PageResponseDto } from './dto/page/page-response.dto';
+import { ActionResponseDto } from './dto/action/action-response.dto';
+import { PermissionResponseDto } from './dto/permission/permission-response.dto';
 
 @ApiTags('Permissions Admin (슈퍼 관리자 전용)')
 @ApiBearerAuth('JWT')

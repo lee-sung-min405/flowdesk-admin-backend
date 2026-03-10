@@ -2,8 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import { BlockWord, MatchType } from './entities/block-word.entity';
-import { CreateBlockWordDto } from './dto/create-block-word.dto';
-import { UpdateBlockWordDto } from './dto/update-block-word.dto';
+import { CreateBlockWordDto } from './dto/block-word/create-block-word.dto';
+import { UpdateBlockWordDto } from './dto/block-word/update-block-word.dto';
 import { BlockWordListResponseDto } from './dto/list-response.dto';
 import {
   BusinessConflictException,

@@ -2,9 +2,9 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { TenantStatus } from './entities/tenant-status.entity';
-import { CreateTenantStatusDto } from './dto/create-tenant-status.dto';
-import { UpdateTenantStatusItemDto } from './dto/update-tenant-status-item.dto';
-import { TenantStatusResponseDto, TenantStatusGroupedResponseDto } from './dto/tenant-status-response.dto';
+import { CreateTenantStatusDto } from './dto/tenant-status/create-tenant-status.dto';
+import { UpdateTenantStatusItemDto } from './dto/tenant-status/update-tenant-status-item.dto';
+import { TenantStatusResponseDto, TenantStatusGroupedResponseDto } from './dto/tenant-status/tenant-status-response.dto';
 import {
   ResourceNotFoundException,
   BusinessConflictException,

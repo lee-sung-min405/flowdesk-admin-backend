@@ -58,6 +58,7 @@ async function bootstrap() {
       .addTag('Tenants (슈퍼 관리자 전용)', '테넌트 관리 API (멀티테넌시)')
       .addTag('Permissions Admin (슈퍼 관리자 전용)', '페이지/액션/권한 CRUD API')
       .addTag('Websites', '웹사이트 관리 API (테넌트 관리자, 웹사이트 CRUD)')
+      .addTag('Boards', '게시판/게시글 관리 API (게시판 CRUD, 게시글 CRUD)')
       // === 보안 ===
       .addTag('Security - Block IP', 'IP 차단 관리 API')
       .addTag('Security - Block HP', '휴대폰 차단 관리 API')
