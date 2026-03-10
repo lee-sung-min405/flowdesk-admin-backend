@@ -10,6 +10,9 @@ import { CreateActionDto } from './dto/create-action.dto';
 import { UpdateActionDto } from './dto/update-action.dto';
 import { CreatePermissionDto } from './dto/create-permission.dto';
 import { UpdatePermissionDto } from './dto/update-permission.dto';
+import { FindActionsResponseDto, ActionListItemDto } from './dto/find-actions-response.dto';
+import { FindPagesResponseDto, PageListItemDto } from './dto/find-pages-response.dto';
+import { FindPermissionsResponseDto, PermissionListItemDto } from './dto/find-permissions-response.dto';
 import { 
   ResourceNotFoundException, 
   BusinessConflictException,
@@ -27,11 +30,149 @@ export class PermissionsAdminService {
     private readonly permissionRepository: Repository<Permission>,
   ) {}
 
-  async findAllPages(): Promise<Page[]> {
-    return this.pageRepository.find({
-      relations: { parent : true },
-      order: { sortOrder: 'ASC', pageId: 'ASC' }
+  async findAllPages(
+    page: number = 1,
+    limit: number = 20,
+    q?: string,
+    parentId?: number | 'null' | 'all',
+    isActive?: number,
+    sort: string = 'sortOrder',
+    order: 'ASC' | 'DESC' = 'ASC',
+  ): Promise<FindPagesResponseDto> {
+    const queryBuilder = this.pageRepository
+      .createQueryBuilder('page')
+      .leftJoinAndSelect('page.parent', 'parent')
+      .addSelect((subQuery) => {
+        return subQuery
+          .select('COUNT(*)')
+          .from('pages', 'child')
+          .where('child.parent_id = page.page_id');
+      }, 'childCount')
+      .addSelect((subQuery) => {
+        return subQuery
+          .select('COUNT(*)')
+          .from('permissions', 'permission')
+          .where('permission.page_id = page.page_id');
+      }, 'permissionCount');
+
+    // 검색 조건
+    if (q) {
+      queryBuilder.andWhere(
+        '(page.pageName LIKE :search OR page.displayName LIKE :search OR page.description LIKE :search)',
+        { search: `%${q}%` }
+      );
+    }
+
+    // 부모 페이지 필터
+    if (parentId !== undefined && parentId !== 'all') {
+      if (parentId === 'null') {
+        queryBuilder.andWhere('page.parentId IS NULL');
+      } else {
+        queryBuilder.andWhere('page.parentId = :parentId', { parentId: Number(parentId) });
+      }
+    }
+
+    // 활성 상태 필터
+    if (isActive !== undefined) {
+      queryBuilder.andWhere('page.isActive = :isActive', { isActive });
+    }
+
+    // 정렬
+    const allowedSortFields = ['pageId', 'pageName', 'displayName', 'sortOrder', 'isActive', 'childCount', 'permissionCount'];
+    const sortField = allowedSortFields.includes(sort) ? sort : 'sortOrder';
+    const isHierarchicalSort = sortField === 'sortOrder';
+    const isAggregateSort = sortField === 'childCount' || sortField === 'permissionCount';
+
+    // DTO 변환 헬퍼
+    const mapToDto = (pageEntity: Page, raw: any): PageListItemDto => ({
+      pageId: pageEntity.pageId,
+      parentId: pageEntity.parentId ?? null,
+      pageName: pageEntity.pageName,
+      path: pageEntity.path,
+      displayName: pageEntity.displayName,
+      description: pageEntity.description ?? null,
+      isActive: pageEntity.isActive,
+      sortOrder: pageEntity.sortOrder ?? null,
+      childCount: parseInt(raw.childCount) || 0,
+      permissionCount: parseInt(raw.permissionCount) || 0,
+      parent: pageEntity.parent ? {
+        pageId: pageEntity.parent.pageId,
+        pageName: pageEntity.parent.pageName,
+        displayName: pageEntity.parent.displayName,
+      } : null,
     });
+
+    // 계층 정렬(sortOrder) 또는 집계 필드 정렬: 전체 로드 후 메모리 정렬/페이지네이션
+    if (isHierarchicalSort || isAggregateSort) {
+      const rawResults = await queryBuilder.getRawAndEntities();
+      let items: PageListItemDto[] = rawResults.entities.map((e, i) => mapToDto(e, rawResults.raw[i]));
+
+      if (isHierarchicalSort) {
+        // 특정 부모 ID가 지정된 경우: 반환된 항목이 모두 자식이므로 단순 sortOrder 정렬
+        if (typeof parentId === 'number') {
+          items.sort((a, b) => {
+            const sa = a.sortOrder ?? Number.MAX_SAFE_INTEGER;
+            const sb = b.sortOrder ?? Number.MAX_SAFE_INTEGER;
+            return sa !== sb ? (order === 'ASC' ? sa - sb : sb - sa) : a.pageId - b.pageId;
+          });
+        } else {
+          // 전체(all) 또는 최상위(null) 조회 시: 부모 → 자식 계층 구조 정렬
+          const parentPages = items.filter(item => item.parentId === null);
+          const childPages = items.filter(item => item.parentId !== null);
+
+          parentPages.sort((a, b) => {
+            const sa = a.sortOrder ?? Number.MAX_SAFE_INTEGER;
+            const sb = b.sortOrder ?? Number.MAX_SAFE_INTEGER;
+            return sa !== sb ? (order === 'ASC' ? sa - sb : sb - sa) : a.pageId - b.pageId;
+          });
+
+          const sortedItems: PageListItemDto[] = [];
+          for (const parent of parentPages) {
+            sortedItems.push(parent);
+            const children = childPages
+              .filter(c => c.parentId === parent.pageId)
+              .sort((a, b) => {
+                const sa = a.sortOrder ?? Number.MAX_SAFE_INTEGER;
+                const sb = b.sortOrder ?? Number.MAX_SAFE_INTEGER;
+                return sa !== sb ? (order === 'ASC' ? sa - sb : sb - sa) : a.pageId - b.pageId;
+              });
+            sortedItems.push(...children);
+          }
+          items = sortedItems;
+        }
+      } else {
+        // 집계 필드 정렬
+        items.sort((a, b) => {
+          const av = (a[sortField as keyof PageListItemDto] as number) ?? 0;
+          const bv = (b[sortField as keyof PageListItemDto] as number) ?? 0;
+          return order === 'ASC' ? av - bv : bv - av;
+        });
+      }
+
+      const totalItems = items.length;
+      const totalPages = Math.ceil(totalItems / limit);
+      const offset = (page - 1) * limit;
+      return {
+        items: items.slice(offset, offset + limit),
+        pageInfo: { page, limit, totalItems, totalPages },
+      };
+    }
+
+    // 일반 필드 정렬: DB 레벨 정렬 및 페이지네이션
+    queryBuilder.orderBy(`page.${sortField}`, order).addOrderBy('page.pageId', 'ASC');
+
+    const totalItems = await queryBuilder.getCount();
+    const totalPages = Math.ceil(totalItems / limit);
+    const offset = (page - 1) * limit;
+    queryBuilder.skip(offset).take(limit);
+
+    const rawResults = await queryBuilder.getRawAndEntities();
+    const items: PageListItemDto[] = rawResults.entities.map((e, i) => mapToDto(e, rawResults.raw[i]));
+
+    return {
+      items,
+      pageInfo: { page, limit, totalItems, totalPages },
+    };
   }
 
   async findPageById(pageId: number): Promise<Page | null> {
@@ -50,6 +191,24 @@ export class PermissionsAdminService {
         { pageId }
       );
     }
+    return page;
+  }
+
+  async getPageByIdWithChildren(pageId: number): Promise<Page> {
+    const page = await this.getPageById(pageId);
+
+    // 하위 페이지 조회 (sortOrder 순으로 정렬)
+    const children = await this.pageRepository.find({
+      where: { parentId: pageId },
+      order: { 
+        sortOrder: 'ASC',
+        pageId: 'ASC'
+      },
+    });
+
+    // children 속성 추가 (타입 안전성을 위해 any 사용)
+    (page as any).children = children;
+
     return page;
   }
 
@@ -150,10 +309,67 @@ export class PermissionsAdminService {
     await this.pageRepository.remove(page);
   }
 
-  async findAllActions(): Promise<Action[]> {
-    return this.actionRepository.find({
-      order: { actionId: 'ASC' },
-    });
+  async findAllActions(
+    page: number = 1,
+    limit: number = 20,
+    q?: string,
+    isActive?: number,
+    sort: string = 'actionId',
+    order: 'ASC' | 'DESC' = 'ASC',
+  ): Promise<FindActionsResponseDto> {
+    // LEFT JOIN + GROUP BY로 permissionCount 집계 (서브쿼리 N번 실행 → 1번 JOIN으로 개선)
+    const queryBuilder = this.actionRepository
+      .createQueryBuilder('action')
+      .leftJoin('permissions', 'p', 'p.action_id = action.action_id')
+      .addSelect('COUNT(p.permission_id)', 'permissionCount')
+      .groupBy('action.action_id');
+
+    // 검색 조건
+    if (q) {
+      queryBuilder.andWhere(
+        '(action.actionName LIKE :search OR action.displayName LIKE :search)',
+        { search: `%${q}%` }
+      );
+    }
+
+    // 활성 상태 필터
+    if (isActive !== undefined) {
+      queryBuilder.andWhere('action.isActive = :isActive', { isActive });
+    }
+
+    // 정렬
+    const allowedSortFields = ['actionId', 'actionName', 'displayName', 'isActive', 'permissionCount'];
+    const sortField = allowedSortFields.includes(sort) ? sort : 'actionId';
+    
+    if (sortField === 'permissionCount') {
+      // alias 대신 COUNT 함수 직접 사용 (TypeORM alias 해석 오류 방지)
+      queryBuilder.orderBy('COUNT(p.permission_id)', order).addOrderBy('action.actionId', 'ASC');
+    } else {
+      queryBuilder.orderBy(`action.${sortField}`, order).addOrderBy('action.actionId', 'ASC');
+    }
+
+    // DB 레벨 전체 개수 조회
+    const totalItems = await queryBuilder.getCount();
+    const totalPages = Math.ceil(totalItems / limit);
+
+    // DB 레벨 페이지네이션
+    const offset = (page - 1) * limit;
+    queryBuilder.skip(offset).take(limit);
+
+    const rawResults = await queryBuilder.getRawAndEntities();
+
+    const items: ActionListItemDto[] = rawResults.entities.map((action, index) => ({
+      actionId: action.actionId,
+      actionName: action.actionName,
+      displayName: action.displayName ?? null,
+      isActive: action.isActive,
+      permissionCount: parseInt(rawResults.raw[index].permissionCount) || 0,
+    }));
+
+    return {
+      items,
+      pageInfo: { page, limit, totalItems, totalPages },
+    };
   }
 
   async findActionById(actionId: number): Promise<Action | null> {
@@ -241,11 +457,82 @@ export class PermissionsAdminService {
     await this.actionRepository.remove(action);
   }
 
-  async findAllPermissions(): Promise<Permission[]> {
-    return this.permissionRepository.find({
-      relations : { page: true, action: true },
-      order: { permissionId: 'ASC' }
-    });
+  async findAllPermissions(
+    page: number = 1,
+    limit: number = 20,
+    q?: string,
+    pageId?: number,
+    actionId?: number,
+    isActive?: number,
+    sort: string = 'permissionId',
+    order: 'ASC' | 'DESC' = 'ASC',
+  ): Promise<FindPermissionsResponseDto> {
+    const queryBuilder = this.permissionRepository
+      .createQueryBuilder('permission')
+      .leftJoinAndSelect('permission.page', 'page')
+      .leftJoinAndSelect('permission.action', 'action');
+
+    // Like 검색 (권한 표시명, 설명)
+    if (q) {
+      queryBuilder.andWhere(
+        '(permission.displayName LIKE :search OR permission.description LIKE :search OR page.pageName LIKE :search OR page.displayName LIKE :search OR action.actionName LIKE :search OR action.displayName LIKE :search)',
+        { search: `%${q}%` }
+      );
+    }
+
+    // 페이지별 필터
+    if (pageId !== undefined) {
+      queryBuilder.andWhere('permission.pageId = :pageId', { pageId });
+    }
+
+    // 액션별 필터
+    if (actionId !== undefined) {
+      queryBuilder.andWhere('permission.actionId = :actionId', { actionId });
+    }
+
+    // 상태별 필터
+    if (isActive !== undefined) {
+      queryBuilder.andWhere('permission.isActive = :isActive', { isActive });
+    }
+
+    // 정렬
+    const allowedSortFields = ['permissionId', 'pageId', 'actionId', 'displayName', 'isActive'];
+    const sortField = allowedSortFields.includes(sort) ? sort : 'permissionId';
+    queryBuilder.orderBy(`permission.${sortField}`, order).addOrderBy('permission.permissionId', 'ASC');
+
+    // DB 레벨 전체 개수
+    const totalItems = await queryBuilder.getCount();
+    const totalPages = Math.ceil(totalItems / limit);
+
+    // DB 레벨 페이지네이션
+    const offset = (page - 1) * limit;
+    queryBuilder.skip(offset).take(limit);
+
+    const permissions = await queryBuilder.getMany();
+
+    const items: PermissionListItemDto[] = permissions.map((perm) => ({
+      permissionId: perm.permissionId,
+      pageId: perm.pageId,
+      actionId: perm.actionId,
+      displayName: perm.displayName ?? null,
+      description: perm.description ?? null,
+      isActive: perm.isActive,
+      page: perm.page ? {
+        pageId: perm.page.pageId,
+        pageName: perm.page.pageName,
+        displayName: perm.page.displayName ?? null,
+      } : null,
+      action: perm.action ? {
+        actionId: perm.action.actionId,
+        actionName: perm.action.actionName,
+        displayName: perm.action.displayName ?? null,
+      } : null,
+    }));
+
+    return {
+      items,
+      pageInfo: { page, limit, totalItems, totalPages },
+    };
   }
 
   async findPermissionById(permissionId: number): Promise<Permission | null> {
