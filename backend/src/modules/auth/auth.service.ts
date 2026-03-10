@@ -51,7 +51,7 @@ export class AuthService {
     tenantId: number,
     userId: string,
     password: string,
-  ) {
+  ): Promise<User> {
     const user = await this.userRepository.findOne({
       where: { tenantId, userId },
     });
@@ -67,7 +67,7 @@ export class AuthService {
       throw new AuthenticationException('Invalid password', { userSeq: user.userSeq });
     }
 
-    return this.toSafeUser(user as any);
+    return user;
   }
 
   async login(payload: { tenantName: string; userId: string; password: string }) {
@@ -83,24 +83,24 @@ export class AuthService {
       throw new AuthenticationException('Tenant not found', { tenantName: payload.tenantName });
     }
 
-    const safeUser = await this.validateUserByTenant(tenant.tenantId, payload.userId, payload.password);
+    const rawUser = await this.validateUserByTenant(tenant.tenantId, payload.userId, payload.password);
 
     const jwtPayload = {
-      sub: (safeUser as any).userSeq,
+      sub: rawUser.userSeq,
       tenantName: tenant.tenantName,
-      userId: (safeUser as any).userId,
-      tokenVersion: (safeUser as any).tokenVersion ?? 0,
+      userId: rawUser.userId,
+      tokenVersion: (rawUser as any).tokenVersion ?? 0,
     };
 
     const expiresIn = String(this.configService.get<string | number>('JWT_EXPIRES_IN') || '3600s');
     const accessToken = this.jwtService.sign(jwtPayload);
 
-    const refresh = await this.createRefreshToken((safeUser as any).userSeq);
+    const refresh = await this.createRefreshToken(rawUser.userSeq);
 
     return {
       accessToken,
       expiresIn,
-      user: safeUser,
+      user: this.toSafeUser(rawUser),
       refreshToken: refresh.raw,
       refreshExpiresAt: refresh.expiresAt.toISOString(),
     };
