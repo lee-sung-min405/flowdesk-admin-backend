@@ -23,6 +23,11 @@
 11. [슈퍼 관리자 대시보드](#11-슈퍼-관리자-대시보드)
 12. [관리 플로우 시나리오 종합](#12-관리-플로우-시나리오-종합)
 
+### Part 3. 비즈니스 플로우 (상담/웹사이트/보안)
+13. [웹사이트 관리 플로우](#13-웹사이트-관리-플로우)
+14. [보안 차단 설정 플로우](#14-보안-차단-설정-플로우)
+15. [상담 관리 플로우](#15-상담-관리-플로우)
+
 ---
 
 ## 1. 전체 흐름 요약
@@ -705,6 +710,21 @@ flowchart LR
 | `/security/block-word/bulk` | POST | 금칙어 대량 등록 | ✅ | `security.create` |
 | `/security/block-word/:id` | PATCH | 금칙어 정보 수정 | ✅ | `security.update` |
 | `/security/block-word/:id` | DELETE | 금칙어 삭제 | ✅ | `security.delete` |
+
+### 7.7 상담 관리 API
+
+| 엔드포인트 | 메서드 | 설명 | 인증 | 권한 |
+|-----------|--------|------|------|------|
+| `/counsels` | POST | 상담 신청 (Public API) | ❌ | ❌ |
+| `/counsels` | GET | 상담 목록 조회 (페이지네이션, 필터) | ✅ | `counsels.read` |
+| `/counsels/:id` | GET | 상담 상세 조회 (fieldValues + logs + memos) | ✅ | `counsels.read` |
+| `/counsels/:id` | PATCH | 상담 수정 | ✅ | `counsels.update` |
+| `/counsels/:id` | DELETE | 상담 삭제 (소프트 삭제) | ✅ | `counsels.delete` |
+| `/counsels/:id/status` | PATCH | 상담 상태 변경 | ✅ | `counsels.update` |
+| `/counsels/:id/logs` | GET | 상태 변경 이력 | ✅ | `counsels.read` |
+| `/counsels/:id/memo` | POST | 메모 작성 | ✅ | `counsels.update` |
+| `/counsels/:id/memo` | GET | 메모 목록 | ✅ | `counsels.read` |
+| `/counsel-fields` | GET | 동적 필드 정의 목록 | ✅ | `counsels.read` |
 
 ### 7.7 에러 코드
 
@@ -2253,10 +2273,400 @@ curl -X POST http://localhost:3000/permissions/admin/pages \
 
 ---
 
-> **문서 버전**: 2.3  
-> **최종 수정일**: 2026-02-11  
+---
+
+# Part 3. 비즈니스 플로우 (상담/웹사이트/보안)
+
+> **Part 3**에서는 실제 비즈니스 운영의 핵심인 상담 관리, 웹사이트 관리, 보안 차단 등의 플로우를 설명합니다.
+
+---
+
+## 13. 웹사이트 관리 플로우
+
+### 13.1 시나리오
+
+> **김철수** 관리자가 상담 유입을 받을 웹사이트를 등록합니다.
+
+### 13.2 웹사이트 등록
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Client as 👤 관리자
+    participant API as 🌐 POST /websites
+    participant Guard as 🛡️ PermissionGuard
+    participant Service as ⚙️ WebsitesService
+    participant DB as 🗄️ Database
+    
+    Client->>API: 웹사이트 생성 요청
+    Note over Client,API: Authorization: Bearer {token}<br/>{<br/>  webCode: "SITE001",<br/>  webUrl: "https://example.com",<br/>  webTitle: "메인 랜딩페이지",<br/>  duplicateAllowAfterDays: 30<br/>}
+    
+    API->>Guard: @RequireAuth('websites', 'create')
+    Guard-->>API: ✅ 권한 확인
+    
+    API->>Service: create(tenantId, dto)
+    
+    Service->>DB: 중복 체크 (tenantId + webCode)
+    DB-->>Service: 없음 ✅
+    
+    Service->>DB: INSERT INTO website
+    DB-->>Service: savedWebsite
+    
+    Service-->>API: WebsiteDto
+    API-->>Client: 201 Created
+```
+
+### 13.3 웹사이트 관리 포인트
+
+```mermaid
+flowchart TB
+    subgraph WebsiteManagement["🌐 웹사이트 관리"]
+        W1["웹사이트 등록<br/>POST /websites"]
+        W2["상태 관리<br/>PATCH /:webCode/status"]
+        W3["중복 허용 일수 설정<br/>duplicateAllowAfterDays"]
+    end
+    
+    W1 --> |"webCode 발급"| Counsel["💬 상담 유입<br/>POST /counsels<br/>(webCode로 연결)"]
+    W3 --> |"중복 감지 기준"| Counsel
+    
+    style WebsiteManagement fill:#e3f2fd
+```
+
+> **핵심**: `duplicateAllowAfterDays`는 같은 HP + IP 조합의 상담이 이 일수 이내에 이미 존재하면 중복으로 판정하는 기준.
+
+---
+
+## 14. 보안 차단 설정 플로우
+
+### 14.1 시나리오
+
+> **김철수** 관리자가 스팸 상담을 차단하기 위해 보안 규칙을 설정합니다.
+
+### 14.2 3계층 보안 차단 구조
+
+```mermaid
+flowchart TB
+    subgraph SecurityLayers["🛡️ 보안 차단 3계층"]
+        direction TB
+        L1["1️⃣ 휴대폰 차단<br/>/security/block-hp"]
+        L2["2️⃣ IP 차단<br/>/security/block-ip"]
+        L3["3️⃣ 금칙어 차단<br/>/security/block-word"]
+    end
+    
+    Counsel["💬 상담 신청<br/>POST /counsels"] --> L1
+    L1 -->|✅ 통과| L2
+    L2 -->|✅ 통과| L3
+    L3 -->|✅ 통과| Create["✅ 상담 생성"]
+    
+    L1 -->|❌ 차단| Reject1["400 VAL001<br/>차단된 번호"]
+    L2 -->|❌ 차단| Reject2["400 VAL001<br/>차단된 IP"]
+    L3 -->|❌ 차단| Reject3["400 VAL001<br/>금칙어 포함"]
+    
+    style SecurityLayers fill:#fff3e0
+    style Reject1 fill:#ffcdd2
+    style Reject2 fill:#ffcdd2
+    style Reject3 fill:#ffcdd2
+```
+
+### 14.3 대량 차단 등록
+
+```http
+POST /security/block-hp/bulk
+Authorization: Bearer {token}
+Content-Type: application/json
+
+{
+  "items": "01012345678\n01098765432\n01011112222",
+  "reason": "스팸 발송 번호"
+}
+```
+
+> **구분자**: 줄바꿈(`\n`) 또는 쉼표(`,`)로 여러 항목 일괄 등록 가능.
+
+### 14.4 금칙어 매칭 타입
+
+| matchType | 설명 | 예시 |
+|-----------|------|------|
+| `EXACT` | 정확히 일치 | "광고" → "광고"만 차단 |
+| `CONTAINS` | 부분 포함 | "광고" → "이건광고입니다" 차단 |
+| `REGEX` | 정규표현식 | `광.*고` → "광 고", "광-고" 차단 |
+
+---
+
+## 15. 상담 관리 플로우
+
+### 15.1 전체 상담 라이프사이클
+
+```mermaid
+flowchart TB
+    subgraph Phase1["1️⃣ 상담 접수"]
+        A1["고객이 랜딩 페이지에서<br/>상담 신청 (Public API)"]
+        A2["보안 3단계 검증"]
+        A3["Advisory Lock<br/>중복 감지"]
+        A4["상담 생성<br/>(NEW or DUPLICATE)"]
+    end
+    
+    subgraph Phase2["2️⃣ 상담 처리"]
+        B1["상담 목록 조회<br/>GET /counsels"]
+        B2["상담 상세 확인<br/>GET /counsels/:id"]
+        B3["담당자 지정<br/>PATCH /counsels/:id"]
+        B4["상태 변경<br/>PATCH /:id/status"]
+        B5["메모 작성<br/>POST /:id/memo"]
+    end
+    
+    subgraph Phase3["3️⃣ 이력 관리"]
+        C1["상태 변경 이력<br/>GET /:id/logs"]
+        C2["메모 이력<br/>GET /:id/memo"]
+    end
+    
+    Phase1 --> Phase2 --> Phase3
+    
+    style Phase1 fill:#e1f5fe
+    style Phase2 fill:#e8f5e9
+    style Phase3 fill:#fff3e0
+```
+
+### 15.2 상담 접수 (Public API)
+
+> 고객이 웹사이트 랜딩 페이지에서 상담을 신청합니다. **인증 불필요**.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Customer as 👤 고객
+    participant API as 🌐 POST /counsels
+    participant Service as ⚙️ CounselService
+    participant Security as 🛡️ Security Module
+    participant DB as 🗄️ Database
+    
+    Customer->>API: 상담 신청
+    Note over Customer,API: {<br/>  webCode: "SITE001",<br/>  counselHp: "01012345678",<br/>  name: "홍길동",<br/>  counselMemo: "상담 문의"<br/>}
+    
+    rect rgb(255, 245, 238)
+        Note over Service,DB: 1️⃣ webCode → tenantId 확인
+        API->>Service: createCounsel(dto, clientIp)
+        Service->>DB: SELECT website WHERE webCode
+        DB-->>Service: website (tenantId: 1) ✅
+    end
+    
+    rect rgb(255, 235, 238)
+        Note over Service,Security: 2️⃣ 보안 3단계 검증
+        Service->>Security: BlockHpService.check(hp)
+        Security-->>Service: ✅ 차단 아님
+        Service->>Security: BlockIpService.check(ip)
+        Security-->>Service: ✅ 차단 아님
+        Service->>Security: BlockWordService.check(name+memo)
+        Security-->>Service: ✅ 금칙어 없음
+    end
+    
+    rect rgb(225, 245, 254)
+        Note over Service,DB: 3️⃣ Advisory Lock + 중복 감지
+        Service->>DB: GET_LOCK(SHA256('counsel:SITE001:HP:IP'), 0)
+        DB-->>Service: ✅ Lock 획득
+        
+        Service->>DB: SELECT counsel WHERE hp+ip<br/>within duplicateAllowAfterDays
+        DB-->>Service: 없음 → NEW 상태 할당
+    end
+    
+    rect rgb(232, 245, 233)
+        Note over Service,DB: 4️⃣ 상담 생성 (Transaction)
+        Service->>DB: INSERT counsel (status=NEW)
+        Service->>DB: INSERT counsel_field_value[]
+        Service->>DB: INSERT counsel_log (logNo=1)
+        DB-->>Service: counselSeq = 100
+        
+        Service->>DB: RELEASE_LOCK(...)
+    end
+    
+    Service-->>API: CounselDetailDto
+    API-->>Customer: 201 Created
+```
+
+### 15.3 상담 목록 조회
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Client as 👤 상담원
+    participant API as 🌐 GET /counsels
+    participant Guard as 🛡️ PermissionGuard
+    participant Service as ⚙️ CounselService
+    participant DB as 🗄️ Database
+    
+    Client->>API: 상담 목록 조회
+    Note over Client,API: ?page=1&limit=20<br/>&counselStat=1<br/>&startDate=2026-01-01
+    
+    API->>Guard: @RequireAuth('counsels', 'read')
+    Guard-->>API: ✅ 권한 확인
+    
+    API->>Service: findCounsels(tenantId, query)
+    
+    Service->>DB: SELECT counsel (필터, 페이지네이션)
+    DB-->>Service: counsel[] (20건)
+    
+    Service->>DB: SELECT counsel_field_value<br/>WHERE counsel_seq IN (...)
+    Note over DB: 🚀 N+1 방지: 일괄 조회
+    DB-->>Service: fieldValues[]
+    
+    Service->>Service: Map으로 그룹핑 후<br/>각 상담에 fieldValues 매핑
+    
+    Service-->>API: CounselListResponseDto
+    API-->>Client: 200 OK
+```
+
+### 15.4 상담 상태 변경
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Client as 👤 상담원
+    participant API as 🌐 PATCH /counsels/:id/status
+    participant Service as ⚙️ CounselStatusService
+    participant DB as 🗄️ Database
+    
+    Client->>API: 상태 변경 요청
+    Note over Client,API: counselSeq: 100<br/>{<br/>  counselStat: 4,<br/>  counselResvDtm: "2026-03-15T14:00:00Z"<br/>}
+    
+    API->>Service: updateCounselStatus(tenantId, 100, 4, resvDtm)
+    
+    Service->>DB: 상담 존재 + 상태 유효성 검증
+    DB-->>Service: ✅
+    
+    Service->>DB: statusKey 확인
+    DB-->>Service: statusKey = "SCHEDULED"
+    
+    Note over Service: SCHEDULED → counselResvDtm 필수 ✅
+    
+    rect rgb(232, 245, 233)
+        Note over Service,DB: Transaction
+        Service->>DB: UPDATE counsel SET<br/>counsel_stat=4, counsel_resv_dtm=...
+        Service->>DB: INSERT counsel_log<br/>(logNo = 기존 로그 수 + 1)
+    end
+    
+    Service-->>API: 204 No Content
+```
+
+### 15.5 상담 메모 작성
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Client as 👤 상담원
+    participant API as 🌐 POST /counsels/:id/memo
+    participant Service as ⚙️ CounselMemoService
+    participant DB as 🗄️ Database
+    
+    Client->>API: 메모 작성 요청
+    Note over Client,API: counselSeq: 100<br/>{ memoText: "고객 연락 완료" }
+    
+    API->>Service: createMemo(tenantId, 100, text, userSeq)
+    
+    Service->>DB: 상담 존재 확인 + 현재 counselStat 조회
+    DB-->>Service: counselStat = 3 (IN_PROGRESS)
+    
+    Service->>DB: INSERT counsel_memo_log<br/>(statusId=3 스냅샷)
+    DB-->>Service: memoLogId = 50
+    
+    Service-->>API: CounselMemoDto
+    API-->>Client: 201 Created
+    Note over Client: 메모에 작성 시점의<br/>상담 상태(IN_PROGRESS)가 기록됨
+```
+
+### 15.6 상담 동적 필드
+
+```mermaid
+flowchart TB
+    subgraph FieldSystem["📋 동적 필드 시스템"]
+        direction LR
+        Def["CounselFieldDef<br/>(테넌트별 필드 정의)"]
+        Value["CounselFieldValue<br/>(상담별 필드 값)"]
+        Def -->|"1:N"| Value
+    end
+    
+    subgraph Types["📊 지원 타입"]
+        T1["text / textarea"]
+        T2["number → valueNumber"]
+        T3["date → valueDate (YYYY-MM-DD)"]
+        T4["datetime → valueDatetime (ISO 8601)"]
+        T5["select / multiselect / checkbox"]
+    end
+    
+    subgraph API["🌐 API"]
+        A1["GET /counsel-fields<br/>필드 정의 조회"]
+        A2["POST /counsels<br/>fieldValues 포함 생성"]
+        A3["PATCH /counsels/:id<br/>fieldValues 전체 교체"]
+    end
+```
+
+### 15.7 상담 관련 API 요약
+
+| 엔드포인트 | 메서드 | 설명 | 인증 | 권한 |
+|-----------|--------|------|------|------|
+| `/counsels` | POST | 상담 신청 (Public) | ❌ | - |
+| `/counsels` | GET | 상담 목록 조회 | ✅ | `counsels.read` |
+| `/counsels/:id` | GET | 상담 상세 조회 | ✅ | `counsels.read` |
+| `/counsels/:id` | PATCH | 상담 수정 | ✅ | `counsels.update` |
+| `/counsels/:id` | DELETE | 상담 삭제 (소프트) | ✅ | `counsels.delete` |
+| `/counsels/:id/status` | PATCH | 상태 변경 | ✅ | `counsels.update` |
+| `/counsels/:id/logs` | GET | 상태 변경 이력 | ✅ | `counsels.read` |
+| `/counsels/:id/memo` | POST | 메모 작성 | ✅ | `counsels.update` |
+| `/counsels/:id/memo` | GET | 메모 목록 | ✅ | `counsels.read` |
+| `/counsel-fields` | GET | 동적 필드 정의 목록 | ✅ | `counsels.read` |
+
+---
+
+## 📌 부록 C. 상담 시나리오 (curl)
+
+```bash
+# 1. 상담 신청 (Public API, 인증 불필요)
+curl -X POST http://localhost:3000/counsels \
+  -H "Content-Type: application/json" \
+  -d '{
+    "webCode": "SITE001",
+    "counselHp": "01012345678",
+    "name": "홍길동",
+    "counselMemo": "상담 문의합니다",
+    "fieldValues": [
+      { "fieldId": 1, "valueText": "서울" },
+      { "fieldId": 2, "valueNumber": 30 }
+    ]
+  }'
+
+# 2. 상담 목록 조회
+curl -X GET "http://localhost:3000/counsels?page=1&limit=20&counselStat=1" \
+  -H "Authorization: Bearer {accessToken}"
+
+# 3. 상담 상세 조회
+curl -X GET http://localhost:3000/counsels/100 \
+  -H "Authorization: Bearer {accessToken}"
+
+# 4. 상담 상태 변경 (예약 상태로)
+curl -X PATCH http://localhost:3000/counsels/100/status \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer {accessToken}" \
+  -d '{
+    "counselStat": 4,
+    "counselResvDtm": "2026-03-15T14:00:00.000Z"
+  }'
+
+# 5. 상담 메모 작성
+curl -X POST http://localhost:3000/counsels/100/memo \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer {accessToken}" \
+  -d '{ "memoText": "고객 연락 완료, 내일 방문 예정" }'
+
+# 6. 동적 필드 정의 조회
+curl -X GET http://localhost:3000/counsel-fields \
+  -H "Authorization: Bearer {accessToken}"
+```
+
+---
+
+> **문서 버전**: 3.0  
+> **최종 수정일**: 2026-02-15  
 > **작성자**: FlowDesk Admin Team (Lee seong min)  
 > **변경 이력**:
+> - v3.0: Part 3 추가 (상담 관리 플로우, 웹사이트 관리 플로우, 보안 차단 설정 플로우)
 > - v2.3: Security 모듈 API 추가 (IP/휴대폰/금칙어 차단), Websites 모듈 API 추가
 > - v2.2: 12.1 추가 (3단계 권한 체계 이해 - 사용자 유형별 역할/권한 생성 흐름)
 > - v2.1: 12장 추가 (관리 플로우 시나리오 종합 - 5개 실무 시나리오)

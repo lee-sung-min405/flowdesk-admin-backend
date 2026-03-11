@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import { User } from '../users/entities/user.entity';
 import { Tenant } from '../tenants/entities/tenant.entity';
+import { TenantStatus } from '../tenants/entities/tenant-status.entity';
 import { RefreshToken } from './entities/refresh-token.entity';
 import { Permission } from '../rbac/entities/permission.entity';
 import { Role } from '../roles/entities/role.entity';
@@ -368,6 +369,21 @@ export class AuthService {
         isActive: 1,
       });
 
+      const defaultStatuses = [
+        { statusKey: 'NEW',         statusName: '신규 접수', sortOrder: 1 },
+        { statusKey: 'DUPLICATE',   statusName: '중복',      sortOrder: 2 },
+        { statusKey: 'IN_PROGRESS', statusName: '진행중',    sortOrder: 3 },
+        { statusKey: 'SCHEDULED',   statusName: '예약',      sortOrder: 4 },
+        { statusKey: 'CONTACTED',   statusName: '상담완료',  sortOrder: 5 },
+      ];
+      
+      await manager.save(
+        TenantStatus,
+        defaultStatuses.map((s) =>
+          manager.create(TenantStatus, { ...s, tenantId: tenant.tenantId, isActive: 1 }),
+        ),
+      );
+
       const hashedPassword = await bcrypt.hash(dto.password, 10);
       const admin = await manager.save(User, {
         userId: dto.email,
@@ -381,9 +397,6 @@ export class AuthService {
         isActive: 1,
         tokenVersion: 0,
       });
-
-      this.logger.log(`New tenant created: ${tenant.tenantName} (ID: ${tenant.tenantId})`);
-      this.logger.log(`Admin user created: ${admin.userId} (userSeq: ${admin.userSeq})`);
 
       return {
         message: '회원가입이 완료되었습니다.',

@@ -164,6 +164,8 @@ JWT 선택 이유:
 | Security - Block IP | IP 차단 관리 API (CRUD, 대량 등록, 차단 여부 확인) |
 | Security - Block HP | 휴대폰 차단 관리 API (CRUD, 대량 등록, 차단 여부 확인) |
 | Security - Block Word | 금칙어 관리 API (CRUD, 대량 등록, 금칙어 포함 여부 확인) |
+| Counsels | 상담 관리 API (CRUD, 상태 변경, 메모, 중복 감지, 보안 차단) |
+| Counsel Fields | 상담 동적 필드 정의 조회 API (테넌트별 커스텀 필드) |
 
 ---
 
@@ -276,9 +278,13 @@ backend/
 │       │   └── entities/
 │       ├── codes/                 # 공통 코드 (예정)
 │       │   └── entities/
-│       └── counsel/               # 상담 (예정)
-│           ├── entities/
-│           └── services/
+│       └── counsel/               # 상담 관리 모듈
+│           ├── counsel.controller.ts
+│           ├── counsel-fields.controller.ts
+│           ├── counsel.module.ts
+│           ├── dto/               # 상담 관련 DTO
+│           ├── entities/          # Counsel, CounselFieldDef, CounselFieldValue, CounselLog, CounselMemoLog
+│           └── services/          # CounselService, CounselStatusService, CounselMemoService, CounselFieldService
 │
 ├── test/                          # E2E 테스트
 ├── .env.development               # 개발 환경 변수
@@ -301,6 +307,7 @@ backend/
 | `health` | 헬스체크 | 서버 상태, DB 연결 상태 확인 | ✅ 완료 |
 | `websites` | 웹사이트 관리 | 상담 유입 웹사이트 CRUD, 상태 관리 | ✅ 완료 |
 | `security` | 보안(차단) 관리 | IP/휴대폰/금칙어 차단 CRUD, 대량 등록, 차단 여부 확인 | ✅ 완료 |
+| `counsel` | 상담 관리 | 상담 CRUD, 상태 변경, 메모 관리, 동적 필드, 중복 감지(Advisory Lock), 보안 차단 연동 | ✅ 완료 |
 
 ### 엔티티 위치 구조
 
@@ -313,6 +320,7 @@ backend/
 | `auth/entities/` | RefreshToken | 리프레시 토큰 정보 |
 | `websites/entities/` | Website | 웹사이트 정보 |
 | `security/entities/` | BlockIp, BlockHp, BlockWord | 보안 차단 정보 |
+| `counsel/entities/` | Counsel, CounselFieldDef, CounselFieldValue, CounselLog, CounselMemoLog | 상담 및 동적 필드 정보 |
 
 ### common 모듈 상세
 
@@ -949,6 +957,28 @@ npm run start:dev
 | `/websites/:webCode` | PATCH | 웹사이트 수정 | websites.update |
 | `/websites/:webCode/status` | PATCH | 웹사이트 상태 변경 | websites.update |
 | `/websites/:webCode` | DELETE | 웹사이트 삭제 | websites.delete |
+
+#### Counsels (상담 관리)
+| 경로 | 메서드 | 용도 | 권한 |
+|------|--------|------|------|
+| `/counsels` | POST | 상담 신청 (랜딩 페이지 Public API) | **인증 불필요** |
+| `/counsels` | GET | 상담 목록 조회 (page, limit, q, counselStat, empSeq, webCode, duplicateState, startDate, endDate, resvStartDate, resvEndDate) | counsels.read |
+| `/counsels/:id` | GET | 상담 상세 조회 (fieldValues, logs, memos 포함) | counsels.read |
+| `/counsels/:id` | PATCH | 상담 수정 (기본필드 + fieldValues 전체 교체) | counsels.update |
+| `/counsels/:id` | DELETE | 상담 삭제 (소프트 삭제, delete_state='Y') | counsels.delete |
+| `/counsels/:id/status` | PATCH | 상담 상태 변경 (SCHEDULED 시 counselResvDtm 필수) | counsels.update |
+| `/counsels/:id/logs` | GET | 상담 상태 변경 이력 조회 | counsels.read |
+| `/counsels/:id/memo` | POST | 상담 메모 작성 (현재 상태 스냅샷) | counsels.update |
+| `/counsels/:id/memo` | GET | 상담 메모 목록 조회 | counsels.read |
+
+> **POST /counsels (Public API)**: 인증 없이 호출 가능. `webCode`로 테넌트를 식별하며, 클라이언트 IP 자동 감지.  
+> 보안 3단계 검증 (휴대폰 차단 → IP 차단 → 금칙어 차단) 후 Advisory Lock 기반 중복 감지 수행.  
+> 상태 자동 할당: 중복이면 `DUPLICATE`, 아니면 `NEW` (statusKey 기반).
+
+#### Counsel Fields (상담 동적 필드)
+| 경로 | 메서드 | 용도 | 권한 |
+|------|--------|------|------|
+| `/counsel-fields` | GET | 활성 필드 정의 목록 조회 (sortOrder ASC, null last) | counsels.read |
 
 #### Security - Block IP (IP 차단 관리)
 | 경로 | 메서드 | 용도 | 권한 |

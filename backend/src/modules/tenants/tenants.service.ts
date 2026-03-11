@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Brackets } from 'typeorm';
 import { Tenant } from './entities/tenant.entity';
+import { TenantStatus } from './entities/tenant-status.entity';
 import { User } from '../users/entities/user.entity';
 import { CreateTenantDto } from './dto/tenant/create-tenant.dto';
 import { UpdateTenantDto } from './dto/tenant/update-tenant.dto';
@@ -17,6 +18,8 @@ export class TenantsService {
   constructor(
     @InjectRepository(Tenant)
     private readonly tenantRepository: Repository<Tenant>,
+    @InjectRepository(TenantStatus)
+    private readonly tenantStatusRepository: Repository<TenantStatus>,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
   ) {}
@@ -132,7 +135,28 @@ export class TenantsService {
       isActive: dto.isActive ?? 1,
     });
 
-    return this.tenantRepository.save(tenant);
+    const saved = await this.tenantRepository.save(tenant);
+
+    // 기본 상담 상태 자동 생성
+    const defaultStatuses = [
+      { statusKey: 'NEW',        statusName: '신규 접수', sortOrder: 1 },
+      { statusKey: 'DUPLICATE',  statusName: '중복',      sortOrder: 2 },
+      { statusKey: 'IN_PROGRESS',statusName: '진행중',    sortOrder: 3 },
+      { statusKey: 'SCHEDULED',  statusName: '예약',      sortOrder: 4 },
+      { statusKey: 'CONTACTED',  statusName: '상담완료',  sortOrder: 5 },
+    ];
+    await this.tenantStatusRepository.save(
+      defaultStatuses.map((s) =>
+        this.tenantStatusRepository.create({
+          tenantId: saved.tenantId,
+          statusGroup: 'counsel',
+          isActive: 1,
+          ...s,
+        }),
+      ),
+    );
+
+    return saved;
   }
 
   async updateTenant(tenantId: number, dto: UpdateTenantDto): Promise<Tenant> {

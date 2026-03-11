@@ -63,6 +63,9 @@ async function bootstrap() {
       .addTag('Security - Block IP', 'IP 차단 관리 API')
       .addTag('Security - Block HP', '휴대폰 차단 관리 API')
       .addTag('Security - Block Word', '금칙어 관리 API')
+      // === 상담 ===
+      .addTag('Counsels', '상담 관리 API (상담 CRUD, 상태 변경, 메모)')
+      .addTag('Counsel Fields', '상담 동적 필드 정의 조회 API')
       .setContact('flowdesk', 'https://github.com/lee-sung-min405/flowdesk-admin', '')
       .addServer(`http://localhost:${port}`)
       .addServer('https://flowdesk-admin-production.up.railway.app')

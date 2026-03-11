@@ -9,10 +9,12 @@
 ## 핵심 개념
 
 - 모든 데이터는 회사(테넌트) 단위로 분리되며, 다른 회사의 데이터에 접근할 수 없다
-- 회원가입 시 회사와 관리자 계정이 함께 생성된다
+- 회원가입 시 회사와 관리자 계정이 함께 생성되고, 기본 상담 상태 5종이 자동 생성된다
 - 관리자는 자신의 회사에 소속된 팀원만 추가하고 관리할 수 있다
 - 모든 API 요청은 요청자의 회사 스코프 내에서만 데이터를 조회하고 수정한다
 - 역할 기반 접근 제어(RBAC)로 회사 내 권한을 세분화한다
+- 상담 신청 Public API는 인증 없이 호출 가능하며, 보안 3단계 검증 + Advisory Lock으로 보호된다
+- 테넌트별 동적 필드 정의로 상담 입력 양식을 커스터마이징할 수 있다
 
 ---
 
@@ -28,7 +30,7 @@ flowdesk-admin/
 | 디렉터리 | 설명 |
 |----------|------|
 | `docs/` | 사용자 플로우, 인증/권한 정책, 엔티티 구조 등 설계 문서 |
-| `backend/` | NestJS 기반 REST API 서버. 인증, 사용자 관리, 권한 검증 구현 |
+| `backend/` | NestJS 기반 REST API 서버. 인증, 사용자/역할/권한 관리, 웹사이트, 보안 차단, 상담 관리 구현 |
 | `frontend/` | React 기반 관리자 UI. 백엔드 API 안정화 후 개발 예정 |
 
 **개발 전략**: 백엔드 API와 데이터 모델을 먼저 안정화한 후 프론트엔드를 구현하는 단계적 접근 방식을 채택했다. 현재 시점에서 검증 가능한 결과물은 백엔드 서버다.
@@ -57,7 +59,7 @@ flowdesk-admin/
 | Database | MySQL 8.x |
 | Auth | JWT (Passport.js), bcrypt, tokenVersion 기반 강제 무효화 |
 | API Docs | Swagger (OpenAPI 3.0) |
-| Security | Rate Limiting (@nestjs/throttler), Helmet |
+| Security | Rate Limiting (@nestjs/throttler), Helmet, IP/HP/Word 차단 |
 | Frontend | React (구현 예정) |
 
 ---

@@ -763,6 +763,40 @@ backend/src/modules/
 
 ---
 
+#### TenantStatus (커스텀 상태)
+
+**파일**: `src/modules/tenants/entities/tenant-status.entity.ts`  
+**테이블**: `tenant_status`
+
+| 속성 | 타입 | 설명 |
+|------|------|------|
+| `tenantStatusId` | PK, int | 상태 ID (AUTO_INCREMENT) |
+| `tenantId` | int | 테넌트 ID (FK → Tenant) |
+| `statusGroup` | varchar(50) | 상태 그룹 (기능별 분류) |
+| `statusKey` | varchar(50) | 상태 식별 키 (예: NEW, DUPLICATE, SCHEDULED) |
+| `statusName` | varchar(100) | 상태 표시명 |
+| `statusColor` | varchar(20) | 상태 색상코드 (nullable) |
+| `sortOrder` | int | 정렬 순서 (nullable) |
+| `isActive` | tinyint | 활성 여부 (default: 1) |
+| `createdAt` | datetime | 생성일시 |
+| `updatedAt` | datetime | 수정일시 |
+
+**인덱스**:
+- UNIQUE: `[tenant_id, status_group, status_key]`
+- INDEX: `[tenant_id, status_group]`
+
+**자동 생성**: 회원가입(`POST /auth/signup`) 및 테넌트 생성(`POST /tenants`) 시 기본 5개 상태가 자동 생성됨:
+
+| statusKey | statusName | 설명 |
+|-----------|------------|------|
+| `NEW` | 신규 | 상담 생성 시 자동 할당 (중복 아닌 경우) |
+| `DUPLICATE` | 중복 | 중복 감지 시 자동 할당 |
+| `IN_PROGRESS` | 진행중 | 상담원이 처리 중 |
+| `SCHEDULED` | 예약 | 상담 예약 설정 시 (`counselResvDtm` 필수) |
+| `CONTACTED` | 연락완료 | 상담 연락 완료 |
+
+---
+
 ### Counsel 모듈
 
 #### Counsel (상담)
@@ -773,38 +807,182 @@ backend/src/modules/
 | 속성 | 타입 | 설명 |
 |------|------|------|
 | `counselSeq` | PK, bigint | 상담 일련번호 (AUTO_INCREMENT) |
-| `webCode` | varchar(20) | 웹사이트 코드 (FK) |
+| `webCode` | varchar(20) | 웹사이트 코드 (FK → Website) |
 | `tenantId` | int | 테넌트 ID |
 | `name` | varchar(50) | 신청자명 (nullable) |
 | `counselHp` | varchar(50) | 신청인 휴대전화 |
 | `counselIp` | varchar(50) | 신청인 IP |
-| `counselStat` | int | 상담 상태 (tenant_status_id 참조) |
-| `empSeq` | int | 담당자 일련번호 (nullable) |
+| `counselStat` | int | 상담 상태 ID (FK → TenantStatus) |
+| `empSeq` | int | 담당자 userSeq (nullable, FK → User, SET NULL on delete) |
 | `counselSource` | varchar(50) | UTM Source (nullable) |
 | `counselMedium` | varchar(50) | UTM Medium (nullable) |
 | `counselCampaign` | varchar(50) | UTM Campaign (nullable) |
-| `deleteState` | enum | 삭제 여부 ('Y' \| 'N') |
+| `counselResvDtm` | datetime | 상담 예약 일시 (nullable) |
+| `counselMemo` | tinytext | 메모 (nullable) |
+| `regDtm` | datetime | 등록일시 (DEFAULT CURRENT_TIMESTAMP) |
+| `editDtm` | datetime | 수정일시 (ON UPDATE CURRENT_TIMESTAMP) |
+| `duplicateState` | char(1) | 중복 여부 ('Y' \| 'N', default: 'N') |
+| `deleteState` | enum | 삭제 여부 ('Y' \| 'N', default: 'N') |
+
+**인덱스**:
+- UNIQUE: `[counsel_seq, tenant_id]`
+- INDEX: `[emp_seq]`
+- INDEX: `[web_code]`
+- INDEX: `[counsel_stat]`
+- INDEX: `[web_code, tenant_id]`
+- INDEX: `[tenant_id, counsel_stat]`
+
+**관계**:
+- `website`: ManyToOne → Website (`[webCode, tenantId]`)
+- `status`: ManyToOne → TenantStatus (`counselStat`)
+- `employee`: ManyToOne → User (`empSeq`, SET NULL)
+- `fieldValues`: OneToMany → CounselFieldValue (CASCADE)
+- `logs`: OneToMany → CounselLog (CASCADE)
+- `memoLogs`: OneToMany → CounselMemoLog (CASCADE)
+
+**비즈니스 로직**:
+- **Public API 생성**: `POST /counsels`는 인증 없이 호출 가능. `webCode`로 테넌트를 식별
+- **보안 차단**: 생성 시 휴대폰 → IP → 금칙어 3단계 검증
+- **중복 감지**: 동일 `counselHp` + `counselIp` 조합이 `duplicateAllowAfterDays` 이내 존재 시 `duplicateState='Y'`
+- **Advisory Lock**: SHA-256 해시키 `counsel:{webCode}:{HP}:{IP}` 로 MySQL `GET_LOCK` 사용, 동시 요청 Race Condition 방지
+- **상태 자동 할당**: 중복이면 `DUPLICATE` statusKey, 아니면 `NEW` statusKey 자동 배정
+- **소프트 삭제**: `deleteState='Y'`로 논리 삭제, 모든 조회 쿼리에서 `deleteState='N'` 필터 적용
 
 ---
 
-#### CounselFieldDef / CounselFieldValue (동적 필드)
+#### CounselFieldDef (상담 필드 정의)
 
-**설계 목적**: 테넌트별로 다른 상담 입력 필드 정의 가능
+**파일**: `src/modules/counsel/entities/counsel-field-def.entity.ts`  
+**테이블**: `counsel_field_def`
 
-| 테이블 | 역할 |
-|--------|------|
-| `counsel_field_def` | 필드 정의 (필드명, 타입, 옵션 등) |
-| `counsel_field_value` | 상담별 필드 값 저장 |
+| 속성 | 타입 | 설명 |
+|------|------|------|
+| `fieldId` | PK, bigint | 필드 ID (AUTO_INCREMENT) |
+| `tenantId` | int | 테넌트 ID |
+| `fieldKey` | varchar(64) | 필드 식별 키 |
+| `label` | varchar(100) | 표시명 |
+| `fieldType` | varchar(20) | 필드 타입 (text, textarea, number, date, datetime, select 등) |
+| `isRequired` | tinyint | 필수 여부 (default: 0) |
+| `isActive` | tinyint | 활성 여부 (default: 1) |
+| `sortOrder` | int | 정렬 순서 (nullable, null은 마지막) |
+| `placeholder` | varchar(150) | 입력 힌트 (nullable) |
+| `helpText` | varchar(255) | 도움말 (nullable) |
+| `defaultValue` | varchar(255) | 기본값 (nullable) |
+| `optionsJson` | longtext | 옵션 JSON (nullable, JSON transformer 적용) |
+| `createdAt` | datetime | 생성일시 |
+| `updatedAt` | datetime | 수정일시 |
 
-**필드 타입 지원**: text, textarea, number, date, datetime, select, multiselect, checkbox, radio, email, phone, url
+**인덱스**:
+- UNIQUE: `[tenant_id, field_key]`
+- UNIQUE: `[field_id, tenant_id]`
+- INDEX: `[tenant_id, is_active, sort_order]`
 
-**JSON 컬럼 처리** (`optionsJson`):
-```typescript
-transformer: {
-  to: (value) => value ? JSON.stringify(value) : null,
-  from: (value) => value ? JSON.parse(value) : null,
-}
-```
+**설계 목적**: 테넌트별로 상담 입력 필드를 자유롭게 정의할 수 있도록 하는 EAV(Entity-Attribute-Value) 패턴
+
+---
+
+#### CounselFieldValue (상담 필드 값)
+
+**파일**: `src/modules/counsel/entities/counsel-field-value.entity.ts`  
+**테이블**: `counsel_field_value`
+
+| 속성 | 타입 | 설명 |
+|------|------|------|
+| `counselSeq` | PK, bigint | 상담 일련번호 (FK → Counsel, CASCADE) |
+| `tenantId` | PK, int | 테넌트 ID |
+| `fieldId` | PK, bigint | 필드 ID (FK → CounselFieldDef, CASCADE UPDATE) |
+| `valueText` | text | 텍스트 값 (nullable) |
+| `valueNumber` | decimal(20,6) | 숫자 값 (nullable) |
+| `valueDate` | date | 날짜 값 (nullable, YYYY-MM-DD) |
+| `valueDatetime` | datetime | 일시 값 (nullable, ISO 8601) |
+| `createdAt` | datetime | 생성일시 |
+| `updatedAt` | datetime | 수정일시 |
+
+**복합 PK**: `[counselSeq, tenantId, fieldId]`
+
+**인덱스**:
+- INDEX: `[field_id]`
+- INDEX: `[counsel_seq, tenant_id]`
+- INDEX: `[field_id, tenant_id]`
+- Prefix INDEX: `value_text(100)` (마이그레이션 필요)
+
+**타입-컬럼 매핑**:
+| fieldType | 저장 컬럼 | 출력 형식 |
+|-----------|----------|----------|
+| text, textarea, select, email, phone, url 등 | `valueText` | string |
+| number | `valueNumber` | number (Number() 변환) |
+| date | `valueDate` | string (YYYY-MM-DD) |
+| datetime | `valueDatetime` | string (ISO 8601) |
+
+**수정 전략**: 전체 교체 (delete all → insert new)
+
+---
+
+#### CounselLog (상담 상태 변경 이력)
+
+**파일**: `src/modules/counsel/entities/counsel-log.entity.ts`  
+**테이블**: `counsel_log`
+
+| 속성 | 타입 | 설명 |
+|------|------|------|
+| `counselSeq` | PK, bigint | 상담 일련번호 (FK → Counsel, CASCADE) |
+| `tenantId` | PK, int | 테넌트 ID |
+| `logNo` | PK, int | 로그 번호 (상담별 자동 증가) |
+| `counselStat` | int | 변경된 상태 ID (FK → TenantStatus, CASCADE UPDATE) |
+| `regDtm` | datetime | 변경 일시 (DEFAULT CURRENT_TIMESTAMP) |
+
+**복합 PK**: `[counselSeq, tenantId, logNo]`
+
+**인덱스**:
+- INDEX: `[counsel_stat]`
+- INDEX: `[tenant_id, counsel_stat]`
+- INDEX: `[counsel_seq, tenant_id]`
+
+**logNo 증가 규칙**: 기존 로그 수 + 1 (상담 생성 시 logNo=1)
+
+---
+
+#### CounselMemoLog (상담 메모)
+
+**파일**: `src/modules/counsel/entities/counsel-memo-log.entity.ts`  
+**테이블**: `counsel_memo_log`
+
+| 속성 | 타입 | 설명 |
+|------|------|------|
+| `memoLogId` | PK, bigint | 메모 ID (AUTO_INCREMENT) |
+| `counselSeq` | bigint | 상담 일련번호 (FK → Counsel, CASCADE) |
+| `tenantId` | int | 테넌트 ID |
+| `statusId` | int | 작성 시점 상담 상태 스냅샷 (FK → TenantStatus, CASCADE UPDATE) |
+| `memoText` | text | 메모 내용 |
+| `createdBy` | int | 작성자 userSeq (nullable, FK → User, SET NULL) |
+| `createdAt` | datetime | 작성 일시 (DEFAULT CURRENT_TIMESTAMP) |
+| `isDeleted` | tinyint | 삭제 여부 (default: 0) |
+| `deletedAt` | datetime | 삭제 일시 (nullable) |
+| `deletedBy` | int | 삭제자 userSeq (nullable, FK → User, SET NULL) |
+
+**인덱스**:
+- INDEX: `[counsel_seq, created_at]`
+- INDEX: `[status_id]`
+- INDEX: `[created_by]`
+- INDEX: `[deleted_by]`
+- INDEX: `[tenant_id, status_id]`
+- INDEX: `[counsel_seq, tenant_id]`
+
+**상태 스냅샷**: 메모 생성 시 해당 상담의 현재 `counselStat` 값이 `statusId`에 기록됨 (이력 추적용)
+
+**API 엔드포인트**:
+| 메서드 | 경로 | 설명 | 권한 |
+|--------|------|------|------|
+| POST | `/counsels` | 상담 생성 (Public API, 인증 불필요) | - |
+| GET | `/counsels` | 상담 목록 (fieldValues 일괄 조회 포함) | `counsels.read` |
+| GET | `/counsels/:id` | 상담 상세 (fieldValues + logs + memos 병렬 조회) | `counsels.read` |
+| PATCH | `/counsels/:id` | 상담 수정 (기본필드 + fieldValues 교체) | `counsels.update` |
+| DELETE | `/counsels/:id` | 상담 삭제 (소프트 삭제) | `counsels.delete` |
+| PATCH | `/counsels/:id/status` | 상태 변경 (SCHEDULED → counselResvDtm 필수) | `counsels.update` |
+| GET | `/counsels/:id/logs` | 상태 변경 이력 | `counsels.read` |
+| POST | `/counsels/:id/memo` | 메모 작성 (상태 스냅샷 기록) | `counsels.update` |
+| GET | `/counsels/:id/memo` | 메모 목록 | `counsels.read` |
+| GET | `/counsel-fields` | 활성 필드 정의 목록 | `counsels.read` |
 
 ---
 
@@ -959,7 +1137,8 @@ rbac/ <───────────────────────┘
 | 인증 전용 | Auth | 토큰 관리 | ✅ 완료 |
 | 웹사이트 관리 | Websites | 상담 유입 웹사이트 | ✅ 완료 |
 | 보안 관리 | Security | IP/휴대폰/금칙어 차단 | ✅ 완료 |
-| 비즈니스 도메인 | Boards, Counsel, Codes | 게시판, 상담, 공통코드 | 🔜 예정 |
+| 비즈니스 도메인 | Counsel | 상담 CRUD, 상태·메모·동적필드·중복감지·보안차단 연동 | ✅ 완료 |
+| 비즈니스 도메인 | Boards, Codes | 게시판, 공통코드 | 🔜 예정 |
 
 ---
 

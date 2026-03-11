@@ -18,6 +18,7 @@ import { RequestIdMiddleware } from './common/middleware/request-id.middleware';
 import { WebsitesModule } from './modules/websites/websites.module';
 import { SecurityModule } from './modules/security/security.module';
 import { BoardsModule } from './modules/boards/boards.module';
+import { CounselModule } from './modules/counsel/counsel.module';
 
 @Module({
   imports: [
@@ -46,6 +47,7 @@ import { BoardsModule } from './modules/boards/boards.module';
     WebsitesModule,
     SecurityModule,
     BoardsModule,
+    CounselModule,
   ],
   controllers: [AppController],
   providers: [

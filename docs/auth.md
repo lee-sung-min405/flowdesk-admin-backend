@@ -234,7 +234,7 @@
 
 | 메서드 | 경로 | 설명 | 인증 | Rate Limit |
 |--------|------|------|------|------------|
-| POST | `/auth/signup` | 회원가입 (회사 + 관리자 생성) | ❌ | 3회/60초 |
+| POST | `/auth/signup` | 회원가입 (회사 + 관리자 + 기본 상태 5종 생성) | ❌ | 3회/60초 |
 | POST | `/auth/login` | 로그인 | ❌ | 5회/60초 |
 | POST | `/auth/refresh` | 토큰 갱신 | ❌ | 10회/60초 |
 | POST | `/auth/logout` | 로그아웃 (단일 토큰 폐기) | ✅ | - |
@@ -333,6 +333,43 @@
 - 사용자가 에러를 보고할 때 requestId를 함께 전달하면 서버 로그에서 정확한 요청을 추적 가능
 - 동일 사용자의 여러 요청을 구분하여 디버깅 가능
 - 분산 환경에서 여러 서버의 로그를 requestId로 연결 가능
+
+---
+
+## 9. Public API 인증 정책
+
+### 인증 없이 접근 가능한 API
+
+일부 API는 인증 없이 외부에서 호출 가능하다. 이 경우 JWT 인증 대신 다른 방식으로 테넌트를 식별한다.
+
+| API | 테넌트 식별 방식 | 보안 대체 수단 |
+|-----|-----------------|---------------|
+| `POST /counsels` | `webCode`로 Website 조회 → `tenantId` 추출 | 보안 3단계 검증 + Advisory Lock |
+| `POST /auth/signup` | 신규 생성 | Rate Limiting (3회/60초) |
+| `POST /auth/login` | `tenantName`으로 조회 | Rate Limiting (5회/60초) |
+| `POST /auth/refresh` | Refresh Token에 `userSeq` 포함 | Rate Limiting (10회/60초) |
+
+### 상담 신청 Public API (`POST /counsels`)
+
+**테넌트 식별 흐름**:
+1. 요청 Body의 `webCode`로 Website 테이블 조회
+2. Website의 `tenantId`로 테넌트 결정
+3. 해당 테넌트의 보안 규칙(Block HP/IP/Word)으로 검증
+
+**보안 대체 수단**:
+- **3단계 보안 검증**: 휴대폰 차단 → IP 차단 → 금칙어 차단 (순차 실행)
+- **Advisory Lock**: SHA-256 해시 기반 MySQL `GET_LOCK`으로 동시 요청 중복 방지
+- **클라이언트 IP 자동 감지**: `request.ip`에서 추출하여 `counselIp`에 기록
+- **중복 감지**: 동일 HP + IP 조합이 `duplicateAllowAfterDays` 이내 존재 시 중복 처리
+
+**인증 없는 API에서 악용 방지**:
+| 위협 | 대응 |
+|------|------|
+| 스팸 번호 대량 접수 | 휴대폰 차단 목록 (BlockHp) |
+| 특정 IP에서 반복 접수 | IP 차단 목록 (BlockIp) |
+| 광고/욕설 포함 접수 | 금칙어 차단 (BlockWord, EXACT/CONTAINS/REGEX) |
+| 동시 중복 요청 (Race Condition) | Advisory Lock (SHA-256 해시키) |
+| 기간 내 동일 고객 중복 접수 | duplicateAllowAfterDays 기반 중복 감지 |
 
 ---
 
