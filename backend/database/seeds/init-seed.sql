@@ -57,17 +57,17 @@ INSERT INTO pages (page_id, parent_id, page_name, path, display_name, descriptio
 (12, NULL, 'user_management', '/user-management', '사용자 & 권한', '사용자, 역할, 권한 관리 메뉴 그룹', 1, 10),
 
 -- 사용자 & 권한 하위 페이지 (parent_id = 12)
-(7, 12, 'roles', '/roles', '역할', '역할 생성/수정/삭제 및 권한 할당', 1, 1),
-(8, 12, 'users', '/users', '사용자', '사용자 생성/수정/삭제 및 역할 할당', 1, 2),
+(7, 12, 'roles', '/roles', '역할 관리', '역할 생성/수정/삭제 및 권한 할당', 1, 1),
+(8, 12, 'users', '/users', '사용자 관리', '사용자 생성/수정/삭제 및 역할 할당', 1, 2),
 (9, 12, 'permissions', '/permissions/catalog', '권한 카탈로그', '권한 목록 조회 (역할 할당용)', 1, 3),
 
 -- 생성 및 시스템 관리 그룹 (부모 페이지)
-(13, NULL, 'system_management', '/system-management', '생성 및 시스템 관리', '테넌트 상태, 보안, 웹사이트 관리 메뉴 그룹', 1, 20),
+(13, NULL, 'system_management', '/system-management', '시스템 관리', '테넌트 상태, 보안, 웹사이트 관리 메뉴 그룹', 1, 20),
 
 -- 생성 및 시스템 관리 하위 페이지 (parent_id = 13)
-(10, 13, 'tenants.status', '/tenants/status', '테넌트 상태', '테넌트별 커스텀 상태 관리 (상담, 주문 등)', 1, 1),
-(14, 13, 'security', '/security', '보안', 'IP, 전화번호, 단어 차단 등 보안 관리', 1, 2),
-(11, 13, 'websites', '/websites', '웹사이트', '웹사이트 등록/수정/삭제 및 활성화 관리', 1, 3),
+(10, 13, 'tenants.status', '/tenants/status', '테넌트 상태 관리', '테넌트별 커스텀 상태 관리 (상담, 주문 등)', 1, 1),
+(14, 13, 'security', '/security', '차단 관리', 'IP, 전화번호, 단어 차단 등 보안 관리', 1, 2),
+(11, 13, 'websites', '/websites', '웹사이트 관리', '웹사이트 등록/수정/삭제 및 활성화 관리', 1, 3),
 (15, 13, 'board_types', '/boards', '게시판 타입 관리', '게시판 종류 생성/수정/삭제 (공지사항, FAQ 등)', 1, 4),
 
 -- 콘텐츠 관리 그룹 (부모 페이지)
