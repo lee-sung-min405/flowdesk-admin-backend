@@ -30,7 +30,7 @@ import { CreateActionDto } from './dto/action/create-action.dto';
 import { UpdateActionDto } from './dto/action/update-action.dto';
 import { CreatePermissionDto } from './dto/permission/create-permission.dto';
 import { UpdatePermissionDto } from './dto/permission/update-permission.dto';
-import { UpdateStatusDto } from './dto/update-status.dto';
+import { RbacUpdateStatusDto } from './dto/update-status.dto';
 import { FindActionsResponseDto } from './dto/action/find-actions-response.dto';
 import { FindPagesResponseDto } from './dto/page/find-pages-response.dto';
 import { FindPermissionsResponseDto } from './dto/permission/find-permissions-response.dto';
@@ -249,7 +249,7 @@ export class PermissionsAdminController {
   })
   async updatePageStatus(
     @Param('id', ParseIntPipe) id: number,
-    @Body() dto: UpdateStatusDto,
+      @Body() dto: RbacUpdateStatusDto,
   ) {
     return this.permissionsAdminService.updatePageStatus(id, dto.isActive);
   }
@@ -371,7 +371,7 @@ export class PermissionsAdminController {
   })
   async updateActionStatus(
     @Param('id', ParseIntPipe) id: number,
-    @Body() dto: UpdateStatusDto,
+      @Body() dto: RbacUpdateStatusDto,
   ) {
     return this.permissionsAdminService.updateActionStatus(id, dto.isActive);
   }
@@ -524,7 +524,7 @@ export class PermissionsAdminController {
   })
   async updatePermissionStatus(
     @Param('id', ParseIntPipe) id: number,
-    @Body() dto: UpdateStatusDto,
+      @Body() dto: RbacUpdateStatusDto,
   ) {
     return this.permissionsAdminService.updatePermissionStatus(id, dto.isActive);
   }

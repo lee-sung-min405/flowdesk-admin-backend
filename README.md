@@ -1,4 +1,4 @@
-# flowdesk-admin
+# Flowdesk Admin Backend
 
 회사(테넌트) 단위로 데이터를 완전 격리하는 멀티테넌트 B2B SaaS 관리자 시스템
 
@@ -20,20 +20,19 @@
 
 ## 프로젝트 구조
 
+
 ```
 flowdesk-admin/
 ├── docs/           # 설계 문서
-├── backend/        # API 서버 (현재 개발 중)
-└── frontend/       # 관리자 UI (구현 예정)
+└── backend/        # API 서버 (현재 개발 중)
 ```
 
 | 디렉터리 | 설명 |
 |----------|------|
 | `docs/` | 사용자 플로우, 인증/권한 정책, 엔티티 구조 등 설계 문서 |
 | `backend/` | NestJS 기반 REST API 서버. 인증, 사용자/역할/권한 관리, 웹사이트, 보안 차단, 상담 관리 구현 |
-| `frontend/` | React 기반 관리자 UI. 백엔드 API 안정화 후 개발 예정 |
 
-**개발 전략**: 백엔드 API와 데이터 모델을 먼저 안정화한 후 프론트엔드를 구현하는 단계적 접근 방식을 채택했다. 현재 시점에서 검증 가능한 결과물은 백엔드 서버다.
+**개발 전략**: 백엔드 API와 데이터 모델을 먼저 안정화한 후 프론트엔드는 별도 레포지토리에서 개발합니다.
 
 ---
 
@@ -60,11 +59,11 @@ flowdesk-admin/
 | Auth | JWT (Passport.js), bcrypt, tokenVersion 기반 강제 무효화 |
 | API Docs | Swagger (OpenAPI 3.0) |
 | Security | Rate Limiting (@nestjs/throttler), Helmet, IP/HP/Word 차단 |
-| Frontend | React (구현 예정) |
 
 ---
 
 ## 로컬 실행
+
 
 ### Backend
 
@@ -75,7 +74,3 @@ npm run start:dev
 ```
 
 상세 설정 및 환경 변수는 [backend/README.md](./backend/README.md) 참고
-
-### Frontend
-
-구현 예정

@@ -2,7 +2,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsInt, IsISO8601, IsOptional, ValidateIf } from 'class-validator';
 import { Type } from 'class-transformer';
 
-export class UpdateStatusDto {
+export class CounselUpdateStatusDto {
   @ApiProperty({ description: '변경할 상태 ID (tenant_status)', example: 2 })
   @IsInt()
   @Type(() => Number)

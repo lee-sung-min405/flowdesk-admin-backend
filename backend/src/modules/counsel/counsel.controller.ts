@@ -33,7 +33,7 @@ import { UpdateCounselDto } from './dto/counsel/update-counsel.dto';
 import { CounselListQueryDto } from './dto/counsel/counsel-list-query.dto';
 import { CounselDetailDto } from './dto/counsel/counsel-response.dto';
 import { CounselListResponseDto } from './dto/counsel/counsel-list-response.dto';
-import { UpdateStatusDto } from './dto/status/update-status.dto';
+import { CounselUpdateStatusDto } from './dto/status/update-status.dto';
 import { CounselLogDto } from './dto/status/counsel-log.dto';
 import { CreateMemoDto } from './dto/memo/create-memo.dto';
 import { CounselMemoDto } from './dto/memo/counsel-memo.dto';
@@ -265,7 +265,7 @@ export class CounselController {
   async updateStatus(
     @Req() request: AuthenticatedRequest,
     @Param('id', ParseIntPipe) id: number,
-    @Body() dto: UpdateStatusDto,
+    @Body() dto: CounselUpdateStatusDto,
   ): Promise<void> {
     await this.counselStatusService.updateCounselStatus(
       request.user.tenantId,
