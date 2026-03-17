@@ -12,6 +12,17 @@ async function bootstrap() {
   const expressApp = app.getHttpAdapter().getInstance();
   expressApp.set('trust proxy', 1);
 
+  // CORS 설정
+  const corsOrigin = process.env.CORS_ORIGIN;
+  app.enableCors({
+    origin: corsOrigin
+      ? corsOrigin.split(',').map((o) => o.trim())
+      : /^https?:\/\/localhost(:\d+)?$/,
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-ID'],
+  });
+
   // Apply security headers with Helmet (CSP disabled for Swagger)
   app.use(
     helmet({
