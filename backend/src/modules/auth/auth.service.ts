@@ -370,11 +370,11 @@ export class AuthService {
       });
 
       const defaultStatuses = [
-        { statusKey: 'NEW',         statusName: '신규 접수', sortOrder: 1 },
-        { statusKey: 'DUPLICATE',   statusName: '중복',      sortOrder: 2 },
-        { statusKey: 'IN_PROGRESS', statusName: '진행중',    sortOrder: 3 },
-        { statusKey: 'SCHEDULED',   statusName: '예약',      sortOrder: 4 },
-        { statusKey: 'CONTACTED',   statusName: '상담완료',  sortOrder: 5 },
+        { statusGroup: 'counsel', statusKey: 'NEW',         statusName: '신규 접수', sortOrder: 1 },
+        { statusGroup: 'counsel', statusKey: 'DUPLICATE',   statusName: '중복',      sortOrder: 2 },
+        { statusGroup: 'counsel', statusKey: 'IN_PROGRESS', statusName: '진행중',    sortOrder: 3 },
+        { statusGroup: 'counsel', statusKey: 'SCHEDULED',   statusName: '예약',      sortOrder: 4 },
+        { statusGroup: 'counsel', statusKey: 'CONTACTED',   statusName: '상담완료',  sortOrder: 5 },
       ];
       
       await manager.save(
