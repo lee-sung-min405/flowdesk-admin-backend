@@ -7,6 +7,9 @@ export class WebsiteResponseDto {
   @ApiProperty({ description: '담당 사용자 시퀀스', example: 1 })
   userSeq: number;
 
+  @ApiPropertyOptional({ description: '담당 사용자 이름', example: '홍길동' })
+  userName?: string | null;
+
   @ApiProperty({ description: '웹사이트 URL', example: 'https://example.com' })
   webUrl: string;
 

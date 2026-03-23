@@ -4,7 +4,6 @@ import { Repository } from 'typeorm';
 import { Website } from './entities/website.entity';
 import { CreateWebsiteDto } from './dto/create-website.dto';
 import { UpdateWebsiteDto } from './dto/update-website.dto';
-import { WebsiteListResponseDto } from './dto/website-list-response.dto';
 import {
   BusinessConflictException,
   ResourceNotFoundException,
@@ -25,9 +24,10 @@ export class WebsitesService {
     isActive?: number,
     sort: string = 'createdAt',
     order: 'ASC' | 'DESC' = 'DESC',
-  ): Promise<WebsiteListResponseDto> {
+  ): Promise<{ items: Website[]; pageInfo: { currentPage: number; pageSize: number; totalItems: number; totalPages: number } }> {
     const queryBuilder = this.websiteRepository
       .createQueryBuilder('website')
+      .leftJoinAndSelect('website.user', 'user')
       .where('website.tenantId = :tenantId', { tenantId });
 
     // 검색 조건 (webCode, webUrl, webTitle, userSeq)
@@ -85,7 +85,18 @@ export class WebsitesService {
   }
 
   async getWebsiteDetail(tenantId: number, webCode: string): Promise<Website> {
-    return this.getWebsiteByCode(tenantId, webCode);
+    const website = await this.websiteRepository.findOne({
+      where: { webCode, tenantId },
+      relations: { user: true },
+    });
+    if (!website) {
+      throw new ResourceNotFoundException(
+        `Website not found: webCode=${webCode}, tenantId=${tenantId}`,
+        '웹사이트를 찾을 수 없습니다.',
+        { webCode, tenantId },
+      );
+    }
+    return website;
   }
 
   async createWebsite(tenantId: number, dto: CreateWebsiteDto): Promise<Website> {

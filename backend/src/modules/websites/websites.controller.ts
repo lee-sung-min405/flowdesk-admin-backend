@@ -92,7 +92,25 @@ export class WebsitesController {
     @Query('sort') sort?: string,
     @Query('order') order?: 'ASC' | 'DESC',
   ): Promise<WebsiteListResponseDto> {
-    return this.websitesService.findWebsites(request.user.tenantId, page, limit, q, isActive, sort, order);
+    const result = await this.websitesService.findWebsites(request.user.tenantId, page, limit, q, isActive, sort, order);
+    return {
+      ...result,
+      items: result.items.map((website) => ({
+        webCode: website.webCode,
+        userSeq: website.userSeq,
+        userName: website.user?.userName ?? null,
+        webUrl: website.webUrl,
+        webTitle: website.webTitle,
+        webImg: website.webImg,
+        webDesc: website.webDesc,
+        webMemo: website.webMemo,
+        isActive: website.isActive,
+        duplicateAllowAfterDays: website.duplicateAllowAfterDays,
+        tenantId: website.tenantId,
+        createdAt: website.createdAt,
+        updatedAt: website.updatedAt,
+      })),
+    };
   }
 
   @Get(':webCode')
@@ -126,7 +144,22 @@ export class WebsitesController {
     @Req() request: AuthenticatedRequest,
     @Param('webCode') webCode: string,
   ): Promise<WebsiteResponseDto> {
-    return this.websitesService.getWebsiteDetail(request.user.tenantId, webCode);
+    const website = await this.websitesService.getWebsiteDetail(request.user.tenantId, webCode);
+    return {
+      webCode: website.webCode,
+      userSeq: website.userSeq,
+      userName: website.user?.userName ?? null,
+      webUrl: website.webUrl,
+      webTitle: website.webTitle,
+      webImg: website.webImg,
+      webDesc: website.webDesc,
+      webMemo: website.webMemo,
+      isActive: website.isActive,
+      duplicateAllowAfterDays: website.duplicateAllowAfterDays,
+      tenantId: website.tenantId,
+      createdAt: website.createdAt,
+      updatedAt: website.updatedAt,
+    };
   }
 
   @Post()
