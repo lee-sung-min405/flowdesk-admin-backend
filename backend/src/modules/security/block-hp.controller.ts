@@ -73,6 +73,21 @@ export class BlockHpController {
     return this.blockHpService.findBlockHps(request.user.tenantId, page, limit, q, isActive);
   }
 
+  @Get('check')
+  @RequireAuth('security', 'read')
+  @ApiOperation({
+    summary: '휴대폰 차단 여부 확인',
+    description: '특정 휴대폰 번호가 차단되어 있는지 확인합니다. 활성화된(isActive=1) 차단만 검사합니다. 차단된 경우 차단 사유와 ID를 함께 반환합니다.',
+  })
+  @ApiQuery({ name: 'hp', required: true, description: '확인할 휴대폰 번호 (하이픈 없이 입력 권장)', example: '01012345678' })
+  @ApiOkResponse({ type: CheckBlockedResponseDto })
+  async checkBlocked(
+    @Req() request: AuthenticatedRequest,
+    @Query('hp') hp: string,
+  ): Promise<CheckBlockedResponseDto> {
+    return this.blockHpService.checkBlocked(request.user.tenantId, hp);
+  }
+
   @Get(':id')
   @RequireAuth('security', 'read')
   @ApiOperation({
@@ -159,18 +174,4 @@ export class BlockHpController {
     await this.blockHpService.deleteBlockHp(request.user.tenantId, id);
   }
 
-  @Get('check')
-  @RequireAuth('security', 'read')
-  @ApiOperation({
-    summary: '휴대폰 차단 여부 확인',
-    description: '특정 휴대폰 번호가 차단되어 있는지 확인합니다. 활성화된(isActive=1) 차단만 검사합니다. 차단된 경우 차단 사유와 ID를 함께 반환합니다.',
-  })
-  @ApiQuery({ name: 'hp', required: true, description: '확인할 휴대폰 번호 (하이픈 없이 입력 권장)', example: '01012345678' })
-  @ApiOkResponse({ type: CheckBlockedResponseDto })
-  async checkBlocked(
-    @Req() request: AuthenticatedRequest,
-    @Query('hp') hp: string,
-  ): Promise<CheckBlockedResponseDto> {
-    return this.blockHpService.checkBlocked(request.user.tenantId, hp);
-  }
 }

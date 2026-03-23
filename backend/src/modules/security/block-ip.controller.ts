@@ -73,6 +73,21 @@ export class BlockIpController {
     return this.blockIpService.findBlockIps(request.user.tenantId, page, limit, q, isActive);
   }
 
+  @Get('check')
+  @RequireAuth('security', 'read')
+  @ApiOperation({
+    summary: 'IP 차단 여부 확인',
+    description: '특정 IP가 차단되어 있는지 확인합니다. 활성화된(isActive=1) 차단만 검사합니다. 차단된 경우 차단 사유와 ID를 함께 반환합니다.',
+  })
+  @ApiQuery({ name: 'ip', required: true, description: '확인할 IP 주소 (IPv4 또는 IPv6)', example: '192.168.1.100' })
+  @ApiOkResponse({ type: CheckBlockedResponseDto })
+  async checkBlocked(
+    @Req() request: AuthenticatedRequest,
+    @Query('ip') ip: string,
+  ): Promise<CheckBlockedResponseDto> {
+    return this.blockIpService.checkBlocked(request.user.tenantId, ip);
+  }
+
   @Get(':id')
   @RequireAuth('security', 'read')
   @ApiOperation({
@@ -159,18 +174,4 @@ export class BlockIpController {
     await this.blockIpService.deleteBlockIp(request.user.tenantId, id);
   }
 
-  @Get('check')
-  @RequireAuth('security', 'read')
-  @ApiOperation({
-    summary: 'IP 차단 여부 확인',
-    description: '특정 IP가 차단되어 있는지 확인합니다. 활성화된(isActive=1) 차단만 검사합니다. 차단된 경우 차단 사유와 ID를 함께 반환합니다.',
-  })
-  @ApiQuery({ name: 'ip', required: true, description: '확인할 IP 주소 (IPv4 또는 IPv6)', example: '192.168.1.100' })
-  @ApiOkResponse({ type: CheckBlockedResponseDto })
-  async checkBlocked(
-    @Req() request: AuthenticatedRequest,
-    @Query('ip') ip: string,
-  ): Promise<CheckBlockedResponseDto> {
-    return this.blockIpService.checkBlocked(request.user.tenantId, ip);
-  }
 }

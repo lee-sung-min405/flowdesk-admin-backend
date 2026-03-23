@@ -76,6 +76,21 @@ export class BlockWordController {
     return this.blockWordService.findBlockWords(request.user.tenantId, page, limit, q, isActive, matchType);
   }
 
+  @Get('check')
+  @RequireAuth('security', 'read')
+  @ApiOperation({
+    summary: '금칙어 차단 여부 확인',
+    description: `입력된 텍스트에 금칙어가 포함되어 있는지 확인합니다.\n\n**검사 방식:**\n- 활성화된(isActive=1) 금칙어만 검사\n- EXACT, CONTAINS, REGEX 모든 매칭 타입을 순차적으로 검사\n- 첫 번째 매칭되는 금칙어 정보 반환\n\n**반환 정보:**\n- 차단된 경우: 차단 사유, ID, 매칭된 단어`,
+  })
+  @ApiQuery({ name: 'text', required: true, description: '확인할 텍스트 (사용자 입력값, 메시지 내용 등)', example: '이것은 테스트 문장입니다' })
+  @ApiOkResponse({ type: CheckBlockedResponseDto })
+  async checkBlocked(
+    @Req() request: AuthenticatedRequest,
+    @Query('text') text: string,
+  ): Promise<CheckBlockedResponseDto> {
+    return this.blockWordService.checkBlocked(request.user.tenantId, text);
+  }
+
   @Get(':id')
   @RequireAuth('security', 'read')
   @ApiOperation({
@@ -161,18 +176,4 @@ export class BlockWordController {
     await this.blockWordService.deleteBlockWord(request.user.tenantId, id);
   }
 
-  @Get('check')
-  @RequireAuth('security', 'read')
-  @ApiOperation({
-    summary: '금칙어 차단 여부 확인',
-    description: `입력된 텍스트에 금칙어가 포함되어 있는지 확인합니다.\n\n**검사 방식:**\n- 활성화된(isActive=1) 금칙어만 검사\n- EXACT, CONTAINS, REGEX 모든 매칭 타입을 순차적으로 검사\n- 첫 번째 매칭되는 금칙어 정보 반환\n\n**반환 정보:**\n- 차단된 경우: 차단 사유, ID, 매칭된 단어`,
-  })
-  @ApiQuery({ name: 'text', required: true, description: '확인할 텍스트 (사용자 입력값, 메시지 내용 등)', example: '이것은 테스트 문장입니다' })
-  @ApiOkResponse({ type: CheckBlockedResponseDto })
-  async checkBlocked(
-    @Req() request: AuthenticatedRequest,
-    @Query('text') text: string,
-  ): Promise<CheckBlockedResponseDto> {
-    return this.blockWordService.checkBlocked(request.user.tenantId, text);
-  }
 }
