@@ -3,7 +3,15 @@ import { IsString, IsEmail, MinLength, Matches, IsOptional } from 'class-validat
 
 export class SignupDto {
   @ApiProperty({ 
-    description: '회사명 (Tenant 이름)', 
+    description: '테넌트 이름 (시스템 내부 식별자, 영문/숫자/언더스코어 권장)', 
+    example: 'acme_corp',
+  })
+  @IsString()
+  @MinLength(2, { message: '테넌트 이름은 최소 2자 이상이어야 합니다.' })
+  tenantName: string;
+
+  @ApiProperty({ 
+    description: '회사명 (표시 이름)', 
     example: 'Acme Corporation',
   })
   @IsString()

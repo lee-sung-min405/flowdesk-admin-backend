@@ -10,8 +10,8 @@ export class SignupResponseDto {
   @ApiProperty({ 
     description: '생성된 테넌트 정보',
     example: {
-      tenantId: 1,
-      tenantName: 'Acme Corporation',
+      tenantId: 3,
+      tenantName: 'acme_corp',
     },
   })
   tenant: {

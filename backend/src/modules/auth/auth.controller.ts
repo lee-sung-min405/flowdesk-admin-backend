@@ -264,21 +264,25 @@ export class AuthController {
   @Throttle({ default: { limit: 3, ttl: 60000 } })
   @Post('signup')
   @ApiOperation({ 
-    summary: '회원가입 (회사 + 관리자 계정 생성)',
-    description: `새로운 회사(Tenant)와 관리자 계정을 동시에 생성합니다.
+    summary: '회원가입 (회사 + 관리자 계정 + 기본 권한 생성)',
+    description: `새로운 회사(Tenant)와 관리자 계정을 동시에 생성하고, 기본 관리자 역할 및 권한을 자동 세팅합니다.
 
 **프로세스:**
 1. 이메일 중복 체크 (전체 시스템)
-2. 회사명 중복 체크
-3. 새 Tenant 생성
-4. 관리자 계정 생성 (즉시 활성화)
+2. 테넌트 이름 중복 체크
+3. 새 Tenant 생성 (tenantName: 시스템 식별자, companyName: 표시 이름)
+4. 기본 상담 상태값 생성
+5. 관리자 계정 생성 (즉시 활성화)
+6. 기본 관리자 역할 생성 (role_name: {tenantName}_admin, display_name: {companyName} 어드민)
+7. super.* 제외 전체 권한을 역할에 할당
+8. 관리자 계정에 역할 매핑
 
 **이후 단계:**
 - 로그인하여 액세스 토큰 발급 (/auth/login)
 - POST /users API로 팀원 추가 (관리자 권한 필요)`,
   })
   @ApiBody({ 
-    description: '회원가입 요청 (회사 정보 + 관리자 정보)', 
+    description: '회원가입 요청 (테넌트 정보 + 관리자 정보)', 
     type: SignupDto,
   })
   @ApiOkResponse({ 
@@ -295,6 +299,7 @@ export class AuthController {
           message: 'Validation failed',
           details: [
             '비밀번호는 영문, 숫자, 특수문자를 각각 최소 1개 이상 포함해야 합니다.',
+            '테넌트 이름은 최소 2자 이상이어야 합니다.',
             '회사명은 최소 2자 이상이어야 합니다.'
           ],
           statusCode: 400,
@@ -308,13 +313,13 @@ export class AuthController {
     },
   })
   @ApiConflictResponse({
-    description: '이메일 또는 회사명 중복 (BIZ001)',
+    description: '이메일 또는 테넌트 이름 중복 (BIZ001)',
     type: StandardErrorResponseDto,
     schema: {
       example: {
         error: {
           code: 'BIZ001',
-          message: '이미 사용 중인 이메일입니다.',
+          message: '이미 사용 중인 이메일입니다. / 이미 사용 중인 테넌트 이름입니다.',
           statusCode: 409,
         },
         meta: {

@@ -7,6 +7,8 @@ import { TenantStatus } from '../tenants/entities/tenant-status.entity';
 import { RefreshToken } from './entities/refresh-token.entity';
 import { Permission } from '../rbac/entities/permission.entity';
 import { Role } from '../roles/entities/role.entity';
+import { UserRole } from '../roles/entities/user-role.entity';
+import { RolePermission } from '../roles/entities/role-permission.entity';
 import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
@@ -352,19 +354,19 @@ export class AuthService {
       }
 
       const existingTenant = await manager.findOne(Tenant, {
-        where: { tenantName: dto.companyName },
+        where: { tenantName: dto.tenantName },
       });
 
       if (existingTenant) {
         throw new BusinessConflictException(
-          `Company name already exists: ${dto.companyName}`,
-          '이미 사용 중인 회사명입니다.',
-          { companyName: dto.companyName },
+          `Tenant name already exists: ${dto.tenantName}`,
+          '이미 사용 중인 테넌트 이름입니다.',
+          { tenantName: dto.tenantName },
         );
       }
 
       const tenant = await manager.save(Tenant, {
-        tenantName: dto.companyName,
+        tenantName: dto.tenantName,
         displayName: dto.companyName,
         isActive: 1,
       });
@@ -396,6 +398,42 @@ export class AuthService {
         userTel: null,
         isActive: 1,
         tokenVersion: 0,
+      });
+
+      // STEP 6: 기본 관리자 역할 생성 (tenant_admin 동일 권한)
+      const role = await manager.save(Role, {
+        roleName: `${dto.tenantName}_admin`,
+        displayName: `${dto.companyName} 어드민`,
+        description: `${dto.companyName} 관리자 역할`,
+        tenantId: tenant.tenantId,
+        isActive: 1,
+      });
+
+      // STEP 7: super.* 제외 모든 권한을 역할에 할당
+      const tenantPermissions = await manager
+        .createQueryBuilder(Permission, 'p')
+        .innerJoin('p.page', 'page')
+        .where('p.isActive = :isActive', { isActive: 1 })
+        .andWhere('page.pageName NOT LIKE :superPrefix', { superPrefix: 'super%' })
+        .getMany();
+
+      if (tenantPermissions.length > 0) {
+        await manager.save(
+          RolePermission,
+          tenantPermissions.map((p) =>
+            manager.create(RolePermission, {
+              roleId: role.roleId,
+              permissionId: p.permissionId,
+            }),
+          ),
+        );
+      }
+
+      // STEP 8: 사용자에 역할 할당
+      await manager.save(UserRole, {
+        userSeq: admin.userSeq,
+        tenantId: tenant.tenantId,
+        roleId: role.roleId,
       });
 
       return {
