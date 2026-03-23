@@ -79,13 +79,13 @@ INSERT INTO pages (page_id, parent_id, page_name, path, display_name, descriptio
 (10, 13, 'tenants.status', '/tenants/status', '테넌트 상태 관리', '테넌트별 커스텀 상태 관리 (상담, 주문 등)', 1, 1),
 (14, 13, 'security', '/security', '차단 관리', 'IP, 전화번호, 단어 차단 등 보안 관리', 1, 2),
 (11, 13, 'websites', '/websites', '웹사이트 관리', '웹사이트 등록/수정/삭제 및 활성화 관리', 1, 3),
-(15, 13, 'board_types', '/boards', '게시판 타입 관리', '게시판 종류 생성/수정/삭제 (공지사항, FAQ 등)', 1, 4),
+(15, 13, 'board_types', '/board-types', '게시판 타입 관리', '게시판 종류 생성/수정/삭제 (공지사항, FAQ 등)', 1, 4),
 
 -- 콘텐츠 관리 그룹 (부모 페이지)
 (16, NULL, 'content_management', '/content-management', '콘텐츠 관리', '게시판, 게시글 등 콘텐츠 작성 및 관리', 1, 30),
 
 -- 콘텐츠 관리 하위 페이지 (parent_id = 16)
-(17, 16, 'boards.posts', '/boards/:boardId/posts', '게시글', '게시글 작성/조회/수정/삭제', 1, 1),
+(17, 16, 'boards.posts', '/boards', '게시글', '게시글 작성/조회/수정/삭제', 1, 1),
 
 -- 상담 관리 그룹 (부모 페이지)
 (18, NULL, 'counsel_management', '/counsel-management', '상담 관리', '상담 접수/상태 관리/필드 정의/메모 관리', 1, 40),
