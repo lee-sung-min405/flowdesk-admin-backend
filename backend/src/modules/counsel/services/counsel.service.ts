@@ -245,7 +245,7 @@ export class CounselService {
     }
   }
 
-  async findCounsels(tenantId: number, query: CounselListQueryDto): Promise<CounselListResponseDto> {
+  async findCounsels(tenantId: number, query: CounselListQueryDto, empSeqFilter?: number): Promise<CounselListResponseDto> {
     const page = query.page ?? 1;
     const limit = Math.min(query.limit ?? 20, 100);
 
@@ -256,6 +256,11 @@ export class CounselService {
       .addSelect(['ts.statusName', 'emp.userName'])
       .where('c.tenantId = :tenantId', { tenantId })
       .andWhere('c.deleteState = :deleteState', { deleteState: DeleteState.N });
+
+    // 비관리자는 자신에게 배정된 상담만 조회
+    if (empSeqFilter !== undefined) {
+      qb.andWhere('c.empSeq = :empSeqFilter', { empSeqFilter });
+    }
 
     // 검색어 필터
     if (query.q) {
@@ -350,15 +355,20 @@ export class CounselService {
     };
   }
 
-  async getCounselById(tenantId: number, counselSeq: number): Promise<CounselDetailDto> {
-    const counsel = await this.counselRepository
+  async getCounselById(tenantId: number, counselSeq: number, empSeqFilter?: number): Promise<CounselDetailDto> {
+    const qb = this.counselRepository
       .createQueryBuilder('c')
       .leftJoinAndSelect('c.status', 'ts', 'ts.tenantId = c.tenantId')
       .leftJoinAndSelect('c.employee', 'emp', 'emp.tenantId = c.tenantId')
       .where('c.counselSeq = :counselSeq', { counselSeq })
       .andWhere('c.tenantId = :tenantId', { tenantId })
-      .andWhere('c.deleteState = :deleteState', { deleteState: DeleteState.N })
-      .getOne();
+      .andWhere('c.deleteState = :deleteState', { deleteState: DeleteState.N });
+
+    if (empSeqFilter !== undefined) {
+      qb.andWhere('c.empSeq = :empSeqFilter', { empSeqFilter });
+    }
+
+    const counsel = await qb.getOne();
 
     if (!counsel) {
       throw new ResourceNotFoundException(
@@ -437,11 +447,13 @@ export class CounselService {
     };
   }
 
-  async updateCounsel(tenantId: number, counselSeq: number, dto: UpdateCounselDto): Promise<CounselDetailDto> {
+  async updateCounsel(tenantId: number, counselSeq: number, dto: UpdateCounselDto, empSeqFilter?: number): Promise<CounselDetailDto> {
     await this.transactionUtil.executeInTransaction(async (queryRunner) => {
-      const counsel = await queryRunner.manager.findOne(Counsel, {
-        where: { counselSeq, tenantId, deleteState: DeleteState.N },
-      });
+      const where: Record<string, any> = { counselSeq, tenantId, deleteState: DeleteState.N };
+      if (empSeqFilter !== undefined) {
+        where.empSeq = empSeqFilter;
+      }
+      const counsel = await queryRunner.manager.findOne(Counsel, { where });
 
       if (!counsel) {
         throw new ResourceNotFoundException(
@@ -524,10 +536,12 @@ export class CounselService {
     return this.getCounselById(tenantId, counselSeq);
   }
 
-  async softDeleteCounsel(tenantId: number, counselSeq: number): Promise<void> {
-    const counsel = await this.counselRepository.findOne({
-      where: { counselSeq, tenantId, deleteState: DeleteState.N },
-    });
+  async softDeleteCounsel(tenantId: number, counselSeq: number, empSeqFilter?: number): Promise<void> {
+    const where: Record<string, any> = { counselSeq, tenantId, deleteState: DeleteState.N };
+    if (empSeqFilter !== undefined) {
+      where.empSeq = empSeqFilter;
+    }
+    const counsel = await this.counselRepository.findOne({ where });
 
     if (!counsel) {
       throw new ResourceNotFoundException(
