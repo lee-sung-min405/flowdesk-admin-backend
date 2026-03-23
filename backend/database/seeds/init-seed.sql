@@ -44,7 +44,8 @@ INSERT INTO actions (action_id, action_name, display_name, is_active) VALUES
 (1, 'read', '조회', 1),
 (2, 'create', '생성', 1),
 (3, 'update', '수정', 1),
-(4, 'delete', '삭제', 1)
+(4, 'delete', '삭제', 1),
+(5, 'admin', '관리', 1)
 ON DUPLICATE KEY UPDATE display_name = VALUES(display_name);
 
 -- ============================================================
@@ -91,8 +92,10 @@ INSERT INTO pages (page_id, parent_id, page_name, path, display_name, descriptio
 (18, NULL, 'counsel_management', '/counsel-management', '상담 관리', '상담 접수/상태 관리/필드 정의/메모 관리', 1, 40),
 
 -- 상담 관리 하위 페이지 (parent_id = 18)
-(19, 18, 'counsels', '/counsels', '상담 목록', '상담 접수 내역 조회/상태 변경/메모 관리', 1, 1),
-(20, 18, 'counsel_fields', '/counsels/fields', '상담 필드 정의', '상담 동적 필드 관리 (EAV 패턴)', 1, 2)
+(21, 18, 'counsels.dashboard', '/counsels/dashboard', '상담 대시보드', '상담 통계 및 현황 대시보드', 1, 1),
+(19, 18, 'counsels', '/counsels', '상담 목록', '상담 접수 내역 조회/상태 변경/메모 관리', 1, 2),
+(22, 18, 'counsels.calendar', '/counsels/calendar', '예약 캘린더', '상담 예약 일정 캘린더 조회 (API는 counsels.read 공유)', 1, 3),
+(20, 18, 'counsel_fields', '/counsels/fields', '상담 필드 정의', '상담 동적 필드 관리 (EAV 패턴)', 1, 4)
 ON DUPLICATE KEY UPDATE display_name = VALUES(display_name), description = VALUES(description);
 
 -- ============================================================
@@ -192,6 +195,15 @@ INSERT INTO permissions (permission_id, page_id, action_id, display_name, descri
 (54, 19, 3, '상담 수정', '상담 상태 변경, 메모 작성, 필드값 수정', 1),
 (55, 19, 4, '상담 삭제', '상담 소프트 삭제', 1),
 
+-- counsels.dashboard (read만) - page_id = 21
+(60, 21, 1, '상담 대시보드 조회', '상담 통계 및 현황 대시보드 조회', 1),
+
+-- counsels.calendar (read만) - page_id = 22
+(61, 22, 1, '예약 캘린더 조회', '상담 예약 캘린더 메뉴 접근 (데이터는 counsels.read 권한 공유)', 1),
+
+-- counsels.admin (관리자 데이터 접근) - page_id = 19, action_id = 5
+(62, 19, 5, '상담 관리자', '테넌트 전체 상담 데이터 접근 권한 (비관리자는 자신 배정 데이터만)', 1),
+
 -- counsel_fields (CRUD) - page_id = 20
 (56, 20, 1, '상담 필드 조회', '상담 동적 필드 목록 조회', 1),
 (57, 20, 2, '상담 필드 생성', '새 상담 필드 정의 생성', 1),
@@ -260,6 +272,12 @@ INSERT INTO role_permissions (role_id, permission_id) VALUES
 (1, 47), (1, 48), (1, 49), (1, 50),
 -- counsel_management (부모 페이지 접근)
 (1, 51),
+-- counsels.dashboard
+(1, 60),
+-- counsels.calendar
+(1, 61),
+-- counsels.admin
+(1, 62),
 -- counsels (CRUD)
 (1, 52), (1, 53), (1, 54), (1, 55),
 -- counsel_fields (CRUD)
@@ -290,6 +308,12 @@ INSERT INTO role_permissions (role_id, permission_id) VALUES
 (2, 47), (2, 48), (2, 49), (2, 50),
 -- counsel_management (부모 페이지 접근)
 (2, 51),
+-- counsels.dashboard
+(2, 60),
+-- counsels.calendar
+(2, 61),
+-- counsels.admin
+(2, 62),
 -- counsels (CRUD)
 (2, 52), (2, 53), (2, 54), (2, 55),
 -- counsel_fields (CRUD)

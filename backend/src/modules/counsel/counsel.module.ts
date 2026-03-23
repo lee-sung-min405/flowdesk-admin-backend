@@ -13,6 +13,7 @@ import { CounselService } from './services/counsel.service';
 import { CounselStatusService } from './services/counsel-status.service';
 import { CounselMemoService } from './services/counsel-memo.service';
 import { CounselFieldService } from './services/counsel-field.service';
+import { CounselDashboardService } from './services/counsel-dashboard.service';
 import { CounselController } from './counsel.controller';
 import { CounselFieldsController } from './counsel-fields.controller';
 import { TransactionUtil } from '../../common/utils/transaction.util';
@@ -37,6 +38,7 @@ import { TransactionUtil } from '../../common/utils/transaction.util';
     CounselStatusService,
     CounselMemoService,
     CounselFieldService,
+    CounselDashboardService,
     TransactionUtil,
   ],
   exports: [CounselService],

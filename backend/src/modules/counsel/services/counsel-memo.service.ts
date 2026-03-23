@@ -23,10 +23,13 @@ export class CounselMemoService {
     counselSeq: number,
     memoText: string,
     createdBy: number,
+    empSeqFilter?: number,
   ): Promise<CounselMemoDto> {
-    const counsel = await this.counselRepository.findOne({
-      where: { counselSeq, tenantId, deleteState: DeleteState.N },
-    });
+    const where: Record<string, any> = { counselSeq, tenantId, deleteState: DeleteState.N };
+    if (empSeqFilter !== undefined) {
+      where.empSeq = empSeqFilter;
+    }
+    const counsel = await this.counselRepository.findOne({ where });
 
     if (!counsel) {
       throw new ResourceNotFoundException(
@@ -61,11 +64,13 @@ export class CounselMemoService {
   /**
    * 메모 목록 조회 (삭제되지 않은 메모만)
    */
-  async findCounselMemos(tenantId: number, counselSeq: number): Promise<CounselMemoDto[]> {
+  async findCounselMemos(tenantId: number, counselSeq: number, empSeqFilter?: number): Promise<CounselMemoDto[]> {
     // 상담 존재 확인
-    const counsel = await this.counselRepository.findOne({
-      where: { counselSeq, tenantId, deleteState: DeleteState.N },
-    });
+    const where: Record<string, any> = { counselSeq, tenantId, deleteState: DeleteState.N };
+    if (empSeqFilter !== undefined) {
+      where.empSeq = empSeqFilter;
+    }
+    const counsel = await this.counselRepository.findOne({ where });
     if (!counsel) {
       throw new ResourceNotFoundException(
         `Counsel not found: counselSeq=${counselSeq}, tenantId=${tenantId}`,

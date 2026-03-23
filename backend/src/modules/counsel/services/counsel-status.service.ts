@@ -28,11 +28,14 @@ export class CounselStatusService {
     counselSeq: number,
     newStatusId: number,
     counselResvDtm?: string,
+    empSeqFilter?: number,
   ): Promise<void> {
     await this.transactionUtil.executeInTransaction(async (queryRunner) => {
-      const counsel = await queryRunner.manager.findOne(Counsel, {
-        where: { counselSeq, tenantId, deleteState: DeleteState.N },
-      });
+      const where: Record<string, any> = { counselSeq, tenantId, deleteState: DeleteState.N };
+      if (empSeqFilter !== undefined) {
+        where.empSeq = empSeqFilter;
+      }
+      const counsel = await queryRunner.manager.findOne(Counsel, { where });
 
       if (!counsel) {
         throw new ResourceNotFoundException(
@@ -88,11 +91,13 @@ export class CounselStatusService {
   /**
    * 상담 상태 변경 이력 조회
    */
-  async findCounselLogs(tenantId: number, counselSeq: number): Promise<CounselLogDto[]> {
+  async findCounselLogs(tenantId: number, counselSeq: number, empSeqFilter?: number): Promise<CounselLogDto[]> {
     // 상담 존재 확인
-    const counsel = await this.counselRepository.findOne({
-      where: { counselSeq, tenantId, deleteState: DeleteState.N },
-    });
+    const where: Record<string, any> = { counselSeq, tenantId, deleteState: DeleteState.N };
+    if (empSeqFilter !== undefined) {
+      where.empSeq = empSeqFilter;
+    }
+    const counsel = await this.counselRepository.findOne({ where });
     if (!counsel) {
       throw new ResourceNotFoundException(
         `Counsel not found: counselSeq=${counselSeq}, tenantId=${tenantId}`,

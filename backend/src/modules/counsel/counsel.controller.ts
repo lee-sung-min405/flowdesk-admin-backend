@@ -28,6 +28,7 @@ import type { Request } from 'express';
 import { CounselService } from './services/counsel.service';
 import { CounselStatusService } from './services/counsel-status.service';
 import { CounselMemoService } from './services/counsel-memo.service';
+import { CounselDashboardService } from './services/counsel-dashboard.service';
 import { CreateCounselDto } from './dto/counsel/create-counsel.dto';
 import { UpdateCounselDto } from './dto/counsel/update-counsel.dto';
 import { CounselListQueryDto } from './dto/counsel/counsel-list-query.dto';
@@ -37,6 +38,8 @@ import { CounselUpdateStatusDto } from './dto/status/update-status.dto';
 import { CounselLogDto } from './dto/status/counsel-log.dto';
 import { CreateMemoDto } from './dto/memo/create-memo.dto';
 import { CounselMemoDto } from './dto/memo/counsel-memo.dto';
+import { CounselDashboardQueryDto } from './dto/dashboard/counsel-dashboard-query.dto';
+import { CounselDashboardResponseDto } from './dto/dashboard/counsel-dashboard-response.dto';
 import { RequireAuth } from '../../common/decorators/require-auth.decorator';
 import { StandardErrorResponseDto } from '../../common/dto/error-response.dto';
 import { SafeUser } from '../auth/types/safe-user.type';
@@ -52,7 +55,55 @@ export class CounselController {
     private readonly counselService: CounselService,
     private readonly counselStatusService: CounselStatusService,
     private readonly counselMemoService: CounselMemoService,
+    private readonly counselDashboardService: CounselDashboardService,
   ) {}
+
+  // ──────────────────────────────────────────
+  // Dashboard
+  // ──────────────────────────────────────────
+
+  @Get('dashboard')
+  @RequireAuth('counsels.dashboard', 'read')
+  @ApiBearerAuth('JWT')
+  @ApiOperation({
+    summary: '상담 대시보드 통계 조회',
+    description: `테넌트 내 상담 통계 데이터를 조회합니다.
+
+**권한:** counsels.dashboard.read
+
+**데이터 범위:**
+- \`counsels.admin\` 권한이 있는 사용자(관리자): 테넌트 전체 데이터 + 담당자별 현황
+- \`counsels.admin\` 권한이 없는 사용자(일반): 자신에게 배정된 상담 데이터만 조회
+
+**날짜 범위:**
+- \`startDate\`/\`endDate\` 미지정 시 최근 30일 기준
+
+**포함 통계:**
+- 요약 카드 (총 건수, 신규, 완료, 완료율)
+- 상태별 분포
+- 담당자별 현황
+- 일별 상담 추이
+- 웹사이트별 상담 (Top 5)
+- 시간대별 상담 분포 (0~23시)
+- 예정된 예약 (오늘 이후, 최대 10건)`,
+  })
+  @ApiOkResponse({ description: '대시보드 조회 성공', type: CounselDashboardResponseDto })
+  async getDashboard(
+    @Req() request: AuthenticatedRequest,
+    @Query() query: CounselDashboardQueryDto,
+  ): Promise<CounselDashboardResponseDto> {
+    const user = request.user;
+    // counsels.admin 권한이 있으면 관리자 → 테넌트 전체 데이터
+    // 없으면 일반 사용자 → 자신에게 배정된 데이터만
+    const isAdmin = user.permissions?.['counsels.admin'] === true;
+    const empSeqFilter = isAdmin ? undefined : user.userSeq;
+
+    return this.counselDashboardService.getDashboard(
+      user.tenantId,
+      query,
+      empSeqFilter,
+    );
+  }
 
   // ──────────────────────────────────────────
   // Counsel CRUD
@@ -110,6 +161,10 @@ export class CounselController {
 
 **권한:** counsels.read
 
+**데이터 범위:**
+- \`counsels.admin\` 권한 보유 시: 테넌트 전체 상담 조회
+- \`counsels.admin\` 권한 없음: 자신에게 배정된 상담만 조회
+
 ---
 
 ### 페이지네이션
@@ -163,7 +218,9 @@ export class CounselController {
     @Req() request: AuthenticatedRequest,
     @Query() query: CounselListQueryDto,
   ): Promise<CounselListResponseDto> {
-    return this.counselService.findCounsels(request.user.tenantId, query);
+    const isAdmin = request.user.permissions?.['counsels.admin'] === true;
+    const empSeqFilter = isAdmin ? undefined : request.user.userSeq;
+    return this.counselService.findCounsels(request.user.tenantId, query, empSeqFilter);
   }
 
   @Get(':id')
@@ -180,7 +237,9 @@ export class CounselController {
 - **상태 변경 이력**: 상태 변경 일시 및 상태명 포함 (logs, logNo 오름차순)
 - **메모 목록**: 담당자가 작성한 메모, 작성자명 포함 (memos, 최신순)
 
-**권한:** counsels.read`,
+**권한:** counsels.read
+
+**데이터 범위:** \`counsels.admin\` 권한 없으면 자신에게 배정된 상담만 조회 가능`,
   })
   @ApiParam({ name: 'id', type: 'integer', description: '상담 시퀀스 (counsel_seq)' })
   @ApiOkResponse({ description: '상담 상세 조회 성공', type: CounselDetailDto })
@@ -189,7 +248,9 @@ export class CounselController {
     @Req() request: AuthenticatedRequest,
     @Param('id', ParseIntPipe) id: number,
   ): Promise<CounselDetailDto> {
-    return this.counselService.getCounselById(request.user.tenantId, id);
+    const isAdmin = request.user.permissions?.['counsels.admin'] === true;
+    const empSeqFilter = isAdmin ? undefined : request.user.userSeq;
+    return this.counselService.getCounselById(request.user.tenantId, id, empSeqFilter);
   }
 
   @Patch(':id')
@@ -215,7 +276,9 @@ export class CounselController {
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateCounselDto,
   ): Promise<CounselDetailDto> {
-    return this.counselService.updateCounsel(request.user.tenantId, id, dto);
+    const isAdmin = request.user.permissions?.['counsels.admin'] === true;
+    const empSeqFilter = isAdmin ? undefined : request.user.userSeq;
+    return this.counselService.updateCounsel(request.user.tenantId, id, dto, empSeqFilter);
   }
 
   @Delete(':id')
@@ -237,7 +300,9 @@ export class CounselController {
     @Req() request: AuthenticatedRequest,
     @Param('id', ParseIntPipe) id: number,
   ): Promise<void> {
-    await this.counselService.softDeleteCounsel(request.user.tenantId, id);
+    const isAdmin = request.user.permissions?.['counsels.admin'] === true;
+    const empSeqFilter = isAdmin ? undefined : request.user.userSeq;
+    await this.counselService.softDeleteCounsel(request.user.tenantId, id, empSeqFilter);
   }
 
   // ──────────────────────────────────────────
@@ -254,6 +319,8 @@ export class CounselController {
 
 **권한:** counsels.update
 
+**데이터 범위:** \`counsels.admin\` 권한 없으면 자신에게 배정된 상담만 상태 변경 가능
+
 **SCHEDULED 상태:** counselResvDtm(ISO 8601) 필드가 필수이며 counsel.counsel_resv_dtm에 저장됩니다.
 
 **트랜잭션:** 상태 변경 + 예약 일시 저장 + 로그 생성이 하나의 트랜잭션으로 처리됩니다.`,
@@ -267,11 +334,14 @@ export class CounselController {
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: CounselUpdateStatusDto,
   ): Promise<void> {
+    const isAdmin = request.user.permissions?.['counsels.admin'] === true;
+    const empSeqFilter = isAdmin ? undefined : request.user.userSeq;
     await this.counselStatusService.updateCounselStatus(
       request.user.tenantId,
       id,
       dto.counselStat,
       dto.counselResvDtm,
+      empSeqFilter,
     );
   }
 
@@ -285,7 +355,9 @@ export class CounselController {
 > 상태 이력은 \`GET /counsels/:id\` 응답의 \`logs\` 필드에도 내장되어 있습니다.  
 > 이력만 별도로 필요할 때 이 엔드포인트를 사용하세요.
 
-**권한:** counsels.read`,
+**권한:** counsels.read
+
+**데이터 범위:** \`counsels.admin\` 권한 없으면 자신에게 배정된 상담의 이력만 조회 가능`,
   })
   @ApiParam({ name: 'id', type: 'integer', description: '상담 시퀀스 (counsel_seq)' })
   @ApiOkResponse({ description: '상태 이력 조회 성공', type: [CounselLogDto] })
@@ -294,7 +366,9 @@ export class CounselController {
     @Req() request: AuthenticatedRequest,
     @Param('id', ParseIntPipe) id: number,
   ): Promise<CounselLogDto[]> {
-    return this.counselStatusService.findCounselLogs(request.user.tenantId, id);
+    const isAdmin = request.user.permissions?.['counsels.admin'] === true;
+    const empSeqFilter = isAdmin ? undefined : request.user.userSeq;
+    return this.counselStatusService.findCounselLogs(request.user.tenantId, id, empSeqFilter);
   }
 
   // ──────────────────────────────────────────
@@ -308,7 +382,9 @@ export class CounselController {
     summary: '상담 메모 작성',
     description: `상담에 메모를 작성합니다. 작성 시점의 상담 상태가 함께 기록됩니다.
 
-**권한:** counsels.update`,
+**권한:** counsels.update
+
+**데이터 범위:** \`counsels.admin\` 권한 없으면 자신에게 배정된 상담에만 메모 작성 가능`,
   })
   @ApiParam({ name: 'id', type: 'integer', description: '상담 시퀀스 (counsel_seq)' })
   @ApiCreatedResponse({ description: '메모 작성 성공', type: CounselMemoDto })
@@ -319,11 +395,14 @@ export class CounselController {
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: CreateMemoDto,
   ): Promise<CounselMemoDto> {
+    const isAdmin = request.user.permissions?.['counsels.admin'] === true;
+    const empSeqFilter = isAdmin ? undefined : request.user.userSeq;
     return this.counselMemoService.createCounselMemo(
       request.user.tenantId,
       id,
       dto.memoText,
       request.user.userSeq,
+      empSeqFilter,
     );
   }
 
@@ -339,6 +418,8 @@ export class CounselController {
 
 **권한:** counsels.read
 
+**데이터 범위:** \`counsels.admin\` 권한 없으면 자신에게 배정된 상담의 메모만 조회 가능
+
 **정렬:** 작성일시 DESC`,
   })
   @ApiParam({ name: 'id', type: 'integer', description: '상담 시퀀스 (counsel_seq)' })
@@ -348,6 +429,8 @@ export class CounselController {
     @Req() request: AuthenticatedRequest,
     @Param('id', ParseIntPipe) id: number,
   ): Promise<CounselMemoDto[]> {
-    return this.counselMemoService.findCounselMemos(request.user.tenantId, id);
+    const isAdmin = request.user.permissions?.['counsels.admin'] === true;
+    const empSeqFilter = isAdmin ? undefined : request.user.userSeq;
+    return this.counselMemoService.findCounselMemos(request.user.tenantId, id, empSeqFilter);
   }
 }
