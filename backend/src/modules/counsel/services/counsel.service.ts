@@ -253,7 +253,8 @@ export class CounselService {
       .createQueryBuilder('c')
       .leftJoin('c.status', 'ts', 'ts.tenantId = c.tenantId')
       .leftJoin('c.employee', 'emp', 'emp.tenantId = c.tenantId')
-      .addSelect(['ts.statusName', 'emp.userName'])
+      .leftJoin('c.website', 'w')
+      .addSelect(['ts.statusName', 'emp.userName', 'w.webTitle'])
       .where('c.tenantId = :tenantId', { tenantId })
       .andWhere('c.deleteState = :deleteState', { deleteState: DeleteState.N });
 
@@ -360,6 +361,7 @@ export class CounselService {
       .createQueryBuilder('c')
       .leftJoinAndSelect('c.status', 'ts', 'ts.tenantId = c.tenantId')
       .leftJoinAndSelect('c.employee', 'emp', 'emp.tenantId = c.tenantId')
+      .leftJoinAndSelect('c.website', 'w')
       .where('c.counselSeq = :counselSeq', { counselSeq })
       .andWhere('c.tenantId = :tenantId', { tenantId })
       .andWhere('c.deleteState = :deleteState', { deleteState: DeleteState.N });
@@ -559,6 +561,7 @@ export class CounselService {
     return {
       counselSeq: counsel.counselSeq,
       webCode: counsel.webCode,
+      webTitle: counsel.website?.webTitle ?? null,
       name: counsel.name,
       counselHp: counsel.counselHp,
       counselStat: counsel.counselStat,

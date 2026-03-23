@@ -66,10 +66,12 @@ export class CounselStatusService {
         );
       }
 
-      // 3. 상담 상태 업데이트 (SCHEDULED이면 예약 일시 함께 저장)
+      // 3. 상담 상태 업데이트 (SCHEDULED이면 예약 일시 함께 저장, 그 외에는 초기화)
       const updateFields: Partial<Counsel> = { counselStat: newStatusId };
       if (validStatus.statusKey === 'SCHEDULED') {
         updateFields.counselResvDtm = new Date(counselResvDtm!);
+      } else {
+        updateFields.counselResvDtm = null;
       }
       await queryRunner.manager.update(Counsel, { counselSeq, tenantId }, updateFields);
 
