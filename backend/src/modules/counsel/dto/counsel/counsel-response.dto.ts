@@ -35,6 +35,9 @@ export class CounselListItemDto {
   @ApiProperty({ description: '웹사이트 코드', example: 'WEB001' })
   webCode: string;
 
+  @ApiPropertyOptional({ description: '웹사이트 이름 (조인)', example: '메인 홈페이지', nullable: true })
+  webTitle: string | null;
+
   @ApiPropertyOptional({ description: '상담자 이름', example: '홍길동', nullable: true })
   name: string | null;
 
