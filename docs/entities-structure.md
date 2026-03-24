@@ -405,6 +405,7 @@ CounselFieldDef (1) ─────+
 
 | 문서 | 경로 | 관련 내용 |
 |------|------|----------|
+| 기술 명세서 | [architecture.md](./architecture.md) | **엔티티 컬럼 상세 명세 (Section 7)** — 정확한 컬럼명, 타입, 제약조건 참고 |
 | 사용자 플로우 | [user-flow.md](./user-flow.md) | 엔티티가 실제로 생성/수정되는 흐름 |
 | 인증/권한 정책 | [auth.md](./auth.md) | 권한 엔티티의 런타임 동작 |
 | 백엔드 README | [backend/README.md](../backend/README.md) | 엔티티 구현 및 ORM 설정 |
