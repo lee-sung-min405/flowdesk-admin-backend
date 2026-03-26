@@ -1,7 +1,6 @@
-import { createHash } from 'crypto';
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { Repository } from 'typeorm';
 import { Counsel, DeleteState } from '../entities/counsel.entity';
 import { CounselFieldValue } from '../entities/counsel-field-value.entity';
 import { CounselLog } from '../entities/counsel-log.entity';
@@ -25,7 +24,6 @@ import { CounselLogDto } from '../dto/status/counsel-log.dto';
 import { CounselMemoDto } from '../dto/memo/counsel-memo.dto';
 import { CounselListResponseDto } from '../dto/counsel/counsel-list-response.dto';
 import {
-  BusinessConflictException,
   ResourceNotFoundException,
   ValidationException,
 } from '../../../common/exceptions/base.exception';
@@ -52,14 +50,13 @@ export class CounselService {
     private readonly blockIpService: BlockIpService,
     private readonly blockWordService: BlockWordService,
     private readonly transactionUtil: TransactionUtil,
-    private readonly dataSource: DataSource,
   ) {}
 
   /**
    * 상담 생성 (랜딩페이지 공개 API)
    * webCode → tenantId 조회, 차단 검증, 중복 판별 후 트랜잭션으로 저장
    */
-  async createCounsel(dto: CreateCounselDto, clientIp: string): Promise<CounselDetailDto> {
+  async createCounsel(dto: CreateCounselDto, clientIp: string): Promise<{ message: string }> {
     // 전화번호 정규화: 하이픈/공백 제거 → 010-1234-5678 과 01012345678 을 동일하게 처리
     dto.counselHp = dto.counselHp.replace(/[\s-]/g, '');
 
@@ -156,31 +153,15 @@ export class CounselService {
       }
     }
 
-    // 7. Advisory Lock 획득 (동일 사용자 연타 방지)
-    // - 원본 키를 SHA-256 해시(64자 hex)로 변환 → MySQL GET_LOCK 64자 제한 항상 준수
-    // - 전용 lockRunner 커넥션 사용 → GET_LOCK / RELEASE_LOCK이 반드시 같은 커넥션에서 실행됨
-    //   (MySQL Advisory Lock은 커넥션 단위: dataSource.query()는 매 호출마다 임의 커넥션을 사용하므로 위험)
-    const rawLockKey = `counsel:${dto.webCode}:${dto.counselHp}:${clientIp}`;
-    const lockKey = createHash('sha256').update(rawLockKey).digest('hex'); // 항상 64자
-    const lockRunner = this.dataSource.createQueryRunner();
-    await lockRunner.connect();
-
-    const lockResult = await lockRunner.query('SELECT GET_LOCK(?, 0) AS acquired', [lockKey]);
-    if (lockResult[0].acquired !== 1) {
-      await lockRunner.release();
-      throw new BusinessConflictException(
-        `Advisory lock acquisition failed: key=${rawLockKey}`,
-        '이미 처리 중인 상담 신청입니다. 잠시 후 다시 시도해 주세요.',
-        { lockKey: rawLockKey },
-      );
-    }
-
-    // 8. Lock 내부에서 중복 신청 판별 (레이스 컨디션 방지: 락 획득 후 확인해야 함)
-    try {
+    // 7. 트랜잭션 내에서 중복 판별 + 저장 (SELECT ... FOR UPDATE로 레이스 컨디션 방지)
+    await this.transactionUtil.executeInTransaction(async (queryRunner) => {
       const cutoffDate = new Date();
       cutoffDate.setDate(cutoffDate.getDate() - website.duplicateAllowAfterDays);
-      const duplicateExists = await this.counselRepository
-        .createQueryBuilder('c')
+
+      // FOR UPDATE: 동일 조건의 동시 요청이 들어오면 두 번째 트랜잭션은 첫 번째 커밋까지 대기
+      const duplicateExists = await queryRunner.manager
+        .createQueryBuilder(Counsel, 'c')
+        .setLock('pessimistic_write')
         .where('c.tenantId = :tenantId', { tenantId })
         .andWhere('c.counselHp = :counselHp', { counselHp: dto.counselHp })
         .andWhere('c.counselIp = :counselIp', { counselIp: clientIp })
@@ -191,61 +172,53 @@ export class CounselService {
       const isDuplicate = !!duplicateExists;
       const initialStatId = isDuplicate ? duplicateStatus.tenantStatusId : newStatus.tenantStatusId;
 
-      // 9. 트랜잭션으로 저장 (finally에서 락 반드시 해제)
-      const newCounselSeq = await this.transactionUtil.executeInTransaction(async (queryRunner) => {
-        const counsel = queryRunner.manager.create(Counsel, {
-          tenantId,
-          webCode: dto.webCode,
-          name: dto.name ?? null,
-          counselHp: dto.counselHp,
-          counselIp: clientIp,
-          counselStat: initialStatId,
-          empSeq: null, // 최초 신청 시 담당자 미배정 (관리자가 이후 수정)
-          counselSource: dto.counselSource ?? null,
-          counselMedium: dto.counselMedium ?? null,
-          counselCampaign: dto.counselCampaign ?? null,
-          counselResvDtm: dto.counselResvDtm ? new Date(dto.counselResvDtm) : null,
-          counselMemo: dto.counselMemo ?? null,
-          duplicateState: isDuplicate ? 'Y' : 'N',
-          deleteState: DeleteState.N,
-        });
-        const saved = await queryRunner.manager.save(Counsel, counsel);
-
-        // 동적 필드 값 저장
-        if (dto.fieldValues?.length) {
-          const fieldValues = dto.fieldValues.map((fv) =>
-            queryRunner.manager.create(CounselFieldValue, {
-              counselSeq: saved.counselSeq,
-              tenantId,
-              fieldId: fv.fieldId,
-              valueText: fv.valueText ?? null,
-              valueNumber: fv.valueNumber ?? null,
-              valueDate: fv.valueDate ? new Date(fv.valueDate) : null,
-              valueDatetime: fv.valueDatetime ? new Date(fv.valueDatetime) : null,
-            }),
-          );
-          await queryRunner.manager.save(CounselFieldValue, fieldValues);
-        }
-
-        // 초기 상태 로그 생성
-        const log = queryRunner.manager.create(CounselLog, {
-          counselSeq: saved.counselSeq,
-          tenantId,
-          logNo: 1,
-          counselStat: initialStatId,
-        });
-        await queryRunner.manager.save(CounselLog, log);
-
-        return saved.counselSeq;
+      const counsel = queryRunner.manager.create(Counsel, {
+        tenantId,
+        webCode: dto.webCode,
+        name: dto.name ?? null,
+        counselHp: dto.counselHp,
+        counselIp: clientIp,
+        counselStat: initialStatId,
+        empSeq: null,
+        counselSource: dto.counselSource ?? null,
+        counselMedium: dto.counselMedium ?? null,
+        counselCampaign: dto.counselCampaign ?? null,
+        counselResvDtm: dto.counselResvDtm ? new Date(dto.counselResvDtm) : null,
+        counselMemo: dto.counselMemo ?? null,
+        duplicateState: isDuplicate ? 'Y' : 'N',
+        deleteState: DeleteState.N,
       });
+      const saved = await queryRunner.manager.save(Counsel, counsel);
 
-      // 트랜잭션 커밋 후 별도 커넥션으로 조회
-      return this.getCounselById(tenantId, newCounselSeq);
-    } finally {
-      // 반드시 lockRunner(락을 획득한 커넥션)에서 해제 후 커넥션 풀 반환
-      await lockRunner.query('SELECT RELEASE_LOCK(?)', [lockKey]);
-      await lockRunner.release();
-    }
+      // 동적 필드 값 저장
+      if (dto.fieldValues?.length) {
+        const fieldValues = dto.fieldValues.map((fv) =>
+          queryRunner.manager.create(CounselFieldValue, {
+            counselSeq: saved.counselSeq,
+            tenantId,
+            fieldId: fv.fieldId,
+            valueText: fv.valueText ?? null,
+            valueNumber: fv.valueNumber ?? null,
+            valueDate: fv.valueDate ? new Date(fv.valueDate) : null,
+            valueDatetime: fv.valueDatetime ? new Date(fv.valueDatetime) : null,
+          }),
+        );
+        await queryRunner.manager.save(CounselFieldValue, fieldValues);
+      }
+
+      // 초기 상태 로그 생성
+      const log = queryRunner.manager.create(CounselLog, {
+        counselSeq: saved.counselSeq,
+        tenantId,
+        logNo: 1,
+        counselStat: initialStatId,
+      });
+      await queryRunner.manager.save(CounselLog, log);
+
+      return saved.counselSeq;
+    });
+
+    return { message: '상담신청이 완료되었습니다.' };
   }
 
   async findCounsels(tenantId: number, query: CounselListQueryDto, empSeqFilter?: number): Promise<CounselListResponseDto> {

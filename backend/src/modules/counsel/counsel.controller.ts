@@ -139,13 +139,13 @@ export class CounselController {
 
 **트랜잭션:** 상담 생성 + 동적 필드 값 저장 + 초기 상태 로그가 하나의 트랜잭션으로 처리됩니다.`,
   })
-  @ApiCreatedResponse({ description: '상담 생성 성공', type: CounselDetailDto })
+  @ApiCreatedResponse({ description: '상담 생성 성공', schema: { example: { message: '상담신청이 완료되었습니다.' } } })
   @ApiBadRequestResponse({ description: '입력값 검증 실패 / webCode 미존재 / 차단된 전화번호·IP / 금칙어 / NEW·DUPLICATE statusKey 미설정 / 유효하지 않은 fieldId (VAL001)', type: StandardErrorResponseDto })
   @ApiConflictResponse({ description: 'Advisory Lock 경합 — 동일 요청이 처리 중 (BIZ001)', type: StandardErrorResponseDto })
   async create(
     @Req() request: Request,
     @Body() dto: CreateCounselDto,
-  ): Promise<CounselDetailDto> {
+  ): Promise<{ message: string }> {
     const clientIp = (request.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim()
       || request.ip
       || 'unknown';
