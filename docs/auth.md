@@ -167,10 +167,16 @@
 {
   "user": {
     "userSeq": 1,
-    "userId": "admin",
-    "userName": "관리자",
     "tenantId": 1,
-    "tenantName": "flowdesk"
+    "tenantName": "flowdesk",
+    "userId": "admin@flowdesk.com",
+    "userName": "관리자",
+    "corpName": "FlowDesk",
+    "userEmail": "admin@flowdesk.com",
+    "userTel": null,
+    "userHp": "010-1234-5678",
+    "isActive": 1,
+    "regDtm": "2026-01-01T00:00:00.000Z"
   },
   "roles": ["ADMIN", "USER_MANAGER"],
   "permissions": {
@@ -210,7 +216,7 @@
 
 | 필드 | 타입 | 설명 |
 |------|------|------|
-| `user` | Object | 사용자 기본 정보 (userSeq, userId, userName, tenantId, tenantName) |
+| `user` | Object | SafeUser 객체 (userSeq, tenantId, tenantName, userId, userName, corpName, userEmail, userTel, userHp, isActive, regDtm) |
 | `roles` | String[] | 사용자에게 할당된 역할 목록 |
 | `permissions` | Record<string, boolean> | 권한 빠른 조회용 flat 구조 (O(1) 조회) |
 | `menuTree` | MenuTreeNode[] | 권한 기반 필터링된 메뉴 트리 (사용자가 접근 가능한 페이지만 포함) |
@@ -323,7 +329,7 @@
   "meta": {
     "requestId": "550e8400-e29b-41d4-a716-446655440000",
     "timestamp": "2026-02-01T12:34:56.789Z",
-    "path": "/api/users"
+    "path": "/users"
   }
 }
 ```

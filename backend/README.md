@@ -274,9 +274,9 @@ backend/
 │       │   ├── dto/               # 차단 관련 DTO
 │       │   └── entities/          # BlockIp, BlockHp, BlockWord 엔티티
 │       │
-│       ├── boards/                # 게시판 (예정)
+│       ├── boards/                # 게시판/게시글 관리
 │       │   └── entities/
-│       ├── codes/                 # 공통 코드 (예정)
+│       ├── codes/                 # 공통 코드 (엔티티만 정의)
 │       │   └── entities/
 │       └── counsel/               # 상담 관리 모듈
 │           ├── counsel.controller.ts
@@ -884,17 +884,13 @@ npm run start:dev
 | 경로 | 메서드 | 용도 | 권한 |
 |------|--------|------|------|
 | `/roles` | GET | 역할 목록 조회 | roles.read |
-| `/roles/:id` | GET | 역할 상세 조회 | roles.read |
+| `/roles/:id` | GET | 역할 상세 조회 (권한 + 사용자 포함) | roles.read |
 | `/roles` | POST | 역할 생성 | roles.create |
 | `/roles/:id` | PATCH | 역할 수정 | roles.update |
 | `/roles/:id/status` | PATCH | 역할 상태 변경 | roles.update |
 | `/roles/:id` | DELETE | 역할 삭제 | roles.delete |
-| `/roles/:id/permissions` | GET | 역할 권한 목록 조회 | roles.read |
-| `/roles/:id/permissions` | PUT | 다른 역할의 권한 복사 | roles.update |
-| `/roles/:id/permissions` | PATCH | 역할 권한 증분 업데이트 (추가/제거) | roles.update |
-| `/roles/:id/users` | GET | 역할 사용자 목록 조회 | roles.read |
-| `/roles/users/:userSeq/assign` | POST | 사용자에게 역할 배정 | roles.update |
-| `/roles/users/:userSeq/unassign` | POST | 사용자에게서 역할 해제 | roles.update |
+| `/roles/:id/permissions` | PUT | 다른 역할의 권한 복사 (전체 교체) | roles.update |
+| `/roles/:id/permissions` | PATCH | 역할 권한 증분 수정 (add/remove) | roles.update |
 
 #### Permissions (권한 카탈로그)
 | 경로 | 메서드 | 용도 | 권한 |
@@ -958,6 +954,20 @@ npm run start:dev
 | `/websites/:webCode/status` | PATCH | 웹사이트 상태 변경 | websites.update |
 | `/websites/:webCode` | DELETE | 웹사이트 삭제 | websites.delete |
 
+#### Boards (게시판/게시글 관리)
+| 경로 | 메서드 | 용도 | 권한 |
+|------|--------|------|------|
+| `/boards` | POST | 게시판 생성 | board_types.create |
+| `/boards` | GET | 게시판 목록 | board_types.read |
+| `/boards/:boardId` | GET | 게시판 상세 | board_types.read |
+| `/boards/:boardId` | PATCH | 게시판 수정 | board_types.update |
+| `/boards/:boardId` | DELETE | 게시판 비활성화 | board_types.delete |
+| `/boards/:boardId/posts` | POST | 게시글 생성 | boards.posts.create |
+| `/boards/:boardId/posts` | GET | 게시글 목록 | boards.posts.read |
+| `/boards/:boardId/posts/:postId` | GET | 게시글 상세 | boards.posts.read |
+| `/boards/:boardId/posts/:postId` | PATCH | 게시글 수정 | boards.posts.update |
+| `/boards/:boardId/posts/:postId` | DELETE | 게시글 소프트 삭제 | boards.posts.delete |
+
 #### Counsels (상담 관리)
 | 경로 | 메서드 | 용도 | 권한 |
 |------|--------|------|------|
@@ -983,35 +993,35 @@ npm run start:dev
 #### Security - Block IP (IP 차단 관리)
 | 경로 | 메서드 | 용도 | 권한 |
 |------|--------|------|------|
-| `/security/block-ip` | GET | IP 차단 목록 (page, limit, q, isActive) | security.blockIp.read |
-| `/security/block-ip/:id` | GET | IP 차단 상세 | security.blockIp.read |
-| `/security/block-ip` | POST | IP 차단 등록 | security.blockIp.create |
-| `/security/block-ip/bulk` | POST | IP 대량 차단 등록 | security.blockIp.create |
-| `/security/block-ip/:id` | PATCH | IP 차단 수정 | security.blockIp.update |
-| `/security/block-ip/:id` | DELETE | IP 차단 삭제 | security.blockIp.delete |
-| `/security/block-ip/check` | GET | IP 차단 여부 확인 (query: ip) | security.blockIp.read |
+| `/security/block-ip` | GET | IP 차단 목록 (page, limit, q, isActive) | security.read |
+| `/security/block-ip/:id` | GET | IP 차단 상세 | security.read |
+| `/security/block-ip` | POST | IP 차단 등록 | security.create |
+| `/security/block-ip/bulk` | POST | IP 대량 차단 등록 | security.create |
+| `/security/block-ip/:id` | PATCH | IP 차단 수정 | security.update |
+| `/security/block-ip/:id` | DELETE | IP 차단 삭제 | security.delete |
+| `/security/block-ip/check` | GET | IP 차단 여부 확인 (query: ip) | security.read |
 
 #### Security - Block HP (휴대폰 차단 관리)
 | 경로 | 메서드 | 용도 | 권한 |
 |------|--------|------|------|
-| `/security/block-hp` | GET | 휴대폰 차단 목록 (page, limit, q, isActive) | security.blockHp.read |
-| `/security/block-hp/:id` | GET | 휴대폰 차단 상세 | security.blockHp.read |
-| `/security/block-hp` | POST | 휴대폰 차단 등록 | security.blockHp.create |
-| `/security/block-hp/bulk` | POST | 휴대폰 대량 차단 등록 | security.blockHp.create |
-| `/security/block-hp/:id` | PATCH | 휴대폰 차단 수정 | security.blockHp.update |
-| `/security/block-hp/:id` | DELETE | 휴대폰 차단 삭제 | security.blockHp.delete |
-| `/security/block-hp/check` | GET | 휴대폰 차단 여부 확인 (query: hp) | security.blockHp.read |
+| `/security/block-hp` | GET | 휴대폰 차단 목록 (page, limit, q, isActive) | security.read |
+| `/security/block-hp/:id` | GET | 휴대폰 차단 상세 | security.read |
+| `/security/block-hp` | POST | 휴대폰 차단 등록 | security.create |
+| `/security/block-hp/bulk` | POST | 휴대폰 대량 차단 등록 | security.create |
+| `/security/block-hp/:id` | PATCH | 휴대폰 차단 수정 | security.update |
+| `/security/block-hp/:id` | DELETE | 휴대폰 차단 삭제 | security.delete |
+| `/security/block-hp/check` | GET | 휴대폰 차단 여부 확인 (query: hp) | security.read |
 
 #### Security - Block Word (금칙어 관리)
 | 경로 | 메서드 | 용도 | 권한 |
 |------|--------|------|------|
-| `/security/block-word` | GET | 금칙어 목록 (page, limit, q, isActive, matchType) | security.blockWord.read |
-| `/security/block-word/:id` | GET | 금칙어 상세 | security.blockWord.read |
-| `/security/block-word` | POST | 금칙어 등록 (EXACT/CONTAINS/REGEX) | security.blockWord.create |
-| `/security/block-word/bulk` | POST | 금칙어 대량 등록 | security.blockWord.create |
-| `/security/block-word/:id` | PATCH | 금칙어 수정 | security.blockWord.update |
-| `/security/block-word/:id` | DELETE | 금칙어 삭제 | security.blockWord.delete |
-| `/security/block-word/check` | GET | 금칙어 포함 여부 확인 (query: text) | security.blockWord.read |
+| `/security/block-word` | GET | 금칙어 목록 (page, limit, q, isActive, matchType) | security.read |
+| `/security/block-word/:id` | GET | 금칙어 상세 | security.read |
+| `/security/block-word` | POST | 금칙어 등록 (EXACT/CONTAINS/REGEX) | security.create |
+| `/security/block-word/bulk` | POST | 금칙어 대량 등록 | security.create |
+| `/security/block-word/:id` | PATCH | 금칙어 수정 | security.update |
+| `/security/block-word/:id` | DELETE | 금칙어 삭제 | security.delete |
+| `/security/block-word/check` | GET | 금칙어 포함 여부 확인 (query: text) | security.read |
 
 #### Super Admin (슈퍼 관리자 전용 - 대시보드)
 | 경로 | 메서드 | 용도 | 권한 |

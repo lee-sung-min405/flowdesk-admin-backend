@@ -278,7 +278,7 @@ sequenceDiagram
     end
     
     Service-->>API: LoginResponseDto
-    API-->>Client: 200 OK
+    API-->>Client: 201 Created
     Note over Client,API: ✅ 로그인 성공!<br/>accessToken + refreshToken
 ```
 
@@ -320,7 +320,7 @@ Content-Type: application/json
 #### Response (성공)
 
 ```http
-HTTP/1.1 200 OK
+HTTP/1.1 201 Created
 Content-Type: application/json
 
 {
@@ -536,7 +536,7 @@ sequenceDiagram
     DB-->>Service: permissions
     
     Service-->>API: LoginResponseDto
-    API-->>Client: 200 OK
+    API-->>Client: 201 Created
     Note over Client,API: ✅ 로그인 성공!<br/>김철수와 같은 tenantId=1<br/>→ 같은 회사 데이터 접근 가능
 ```
 
@@ -906,22 +906,31 @@ Content-Type: application/json
 
 #### 8.3.1 역할의 현재 권한 조회
 
+> 역할의 권한은 `GET /roles/:id` 상세 조회 응답의 `permissionsByPage` 필드에 포함된다.
+
 ```http
-GET /roles/3/permissions
+GET /roles/3
 Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
 ```
 
-#### Response
+#### Response (일부)
 
 ```json
 {
   "roleId": 3,
   "roleName": "마케팅팀",
-  "permissions": [
+  "permissionsByPage": [
     {
-      "permissionId": 5,
-      "permissionName": "users.read",
-      "description": "사용자 목록 조회"
+      "pageId": 1,
+      "pageName": "users",
+      "pageDisplayName": "사용자 관리",
+      "permissions": [
+        {
+          "permissionId": 5,
+          "displayName": "사용자 조회",
+          "actionName": "read"
+        }
+      ]
     }
   ]
 }
@@ -933,18 +942,18 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
 sequenceDiagram
     autonumber
     participant Client as 👤 관리자
-    participant API as 🌐 POST /roles/:id/permissions
+    participant API as 🌐 PATCH /roles/:id/permissions
     participant Guard as 🛡️ PermissionGuard
     participant Service as ⚙️ RolesService
     participant DB as 🗄️ Database
     
-    Client->>API: 권한 할당 요청
-    Note over Client,API: roleId: 3<br/>{<br/>  permissionIds: [5, 6, 7, 8]<br/>}
+    Client->>API: 권한 증분 수정 요청
+    Note over Client,API: roleId: 3<br/>{<br/>  add: [5, 6, 7, 8],<br/>  remove: [2, 3]<br/>}
     
-    API->>Guard: @RequireAuth('roles.permissions', 'update')
+    API->>Guard: @RequireAuth('roles', 'update')
     Guard-->>API: ✅ 권한 확인
     
-    API->>Service: assignPermissions(roleId, tenantId, permissionIds)
+    API->>Service: modifyPermissions(roleId, tenantId, dto)
     
     rect rgb(255, 245, 238)
         Note over Service,DB: 🔍 역할 존재 확인
@@ -953,25 +962,26 @@ sequenceDiagram
     end
     
     rect rgb(232, 245, 233)
-        Note over Service,DB: ✨ 권한 할당 (Transaction)
-        Service->>DB: DELETE FROM role_permissions<br/>WHERE role_id = 3
+        Note over Service,DB: ✨ 권한 증분 수정 (Transaction)
         Service->>DB: INSERT INTO role_permissions<br/>(role_id, permission_id) VALUES (3, 5)...
+        Service->>DB: DELETE FROM role_permissions<br/>WHERE role_id = 3 AND permission_id IN (2, 3)
         DB-->>Service: ✅ 완료
     end
     
-    Service-->>API: { message, assignedCount }
+    Service-->>API: ModifyPermissionsResponseDto
     API-->>Client: 200 OK
 ```
 
 #### Request
 
 ```http
-POST /roles/3/permissions
+PATCH /roles/3/permissions
 Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
 Content-Type: application/json
 
 {
-  "permissionIds": [5, 6, 7, 8]
+  "add": [5, 6, 7, 8],
+  "remove": [2, 3]
 }
 ```
 
@@ -986,27 +996,35 @@ Content-Type: application/json
 
 ### 8.4 역할-사용자 조회
 
+> 역할에 할당된 사용자는 `GET /roles/:id` 상세 조회 응답의 `assignedUsers` 필드에 포함된다.
+
 ```http
-GET /roles/3/users
+GET /roles/3
 Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
 ```
 
-#### Response
+#### Response (일부)
 
 ```json
 {
   "roleId": 3,
   "roleName": "마케팅팀",
-  "users": [
+  "assignedUsers": [
     {
       "userSeq": 5,
       "userId": "kim.marketing",
-      "userName": "김마케팅"
+      "userName": "김마케팅",
+      "email": "kim@marketing.com",
+      "isActive": 1,
+      "assignedAt": "2026-01-20T10:00:00.000Z"
     },
     {
       "userSeq": 8,
       "userId": "park.sns",
-      "userName": "박SNS"
+      "userName": "박SNS",
+      "email": "park@marketing.com",
+      "isActive": 1,
+      "assignedAt": "2026-01-20T10:00:00.000Z"
     }
   ]
 }
@@ -1017,14 +1035,13 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
 | 엔드포인트 | 메서드 | 설명 | 권한 |
 |-----------|--------|------|------|
 | `/roles` | GET | 역할 목록 조회 | `roles.read` |
-| `/roles/:id` | GET | 역할 상세 조회 | `roles.read` |
+| `/roles/:id` | GET | 역할 상세 조회 (권한 + 사용자 포함) | `roles.read` |
 | `/roles` | POST | 역할 생성 | `roles.create` |
 | `/roles/:id` | PATCH | 역할 수정 | `roles.update` |
 | `/roles/:id/status` | PATCH | 역할 상태 변경 | `roles.update` |
 | `/roles/:id` | DELETE | 역할 삭제 | `roles.delete` |
-| `/roles/:id/permissions` | GET | 역할의 권한 조회 | `roles.read` |
-| `/roles/:id/permissions` | POST | 역할에 권한 할당 | `roles.permissions.update` |
-| `/roles/:id/users` | GET | 역할의 사용자 조회 | `roles.read` |
+| `/roles/:id/permissions` | PUT | 권한 전체 교체 (다른 역할에서 복사) | `roles.update` |
+| `/roles/:id/permissions` | PATCH | 권한 증분 수정 (add/remove) | `roles.update` |
 
 ---
 
@@ -1352,7 +1369,7 @@ Content-Type: application/json
 
 ### 10.1 테넌트 관리 개요
 
-> 슈퍼 관리자(tenantId=0)가 전체 시스템의 테넌트(회사)를 관리합니다.  
+> 슈퍼 관리자(tenantId=1)가 전체 시스템의 테넌트(회사)를 관리합니다.  
 > 모든 Tenants API는 `super.tenants.*` 권한이 필요합니다.
 
 ```mermaid
@@ -1628,28 +1645,45 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
 
 ```json
 {
-  "summary": {
+  "overview": {
     "totalTenants": 15,
     "activeTenants": 12,
     "totalUsers": 150,
+    "activeUsers": 120,
+    "totalCounsels": 500,
+    "totalPosts": 80,
     "totalRoles": 45,
     "totalPermissions": 28
   },
-  "recentTenants": [
+  "today": {
+    "newUsers": 3,
+    "newCounsels": 12,
+    "newPosts": 5,
+    "activeSessions": 8
+  },
+  "monthlyTrends": {
+    "userRegistrations": [{"month": "2026-01", "count": 15}],
+    "counselRegistrations": [{"month": "2026-01", "count": 45}],
+    "tenantRegistrations": [{"month": "2026-01", "count": 2}]
+  },
+  "security": {
+    "totalBlockedIps": 50,
+    "totalBlockedHps": 30,
+    "totalBlockedWords": 20,
+    "recentBlockedIps": 5,
+    "recentBlockedHps": 3
+  },
+  "tenantStats": [
     {
-      "tenantId": 15,
-      "tenantName": "최신회사",
-      "isActive": true,
-      "createdAt": "2026-01-25T10:00:00.000Z"
-    },
-    {
-      "tenantId": 14,
-      "tenantName": "신규기업",
-      "isActive": true,
-      "createdAt": "2026-01-24T15:30:00.000Z"
+      "tenantId": 2,
+      "tenantName": "마케팅솔루션",
+      "isActive": 1,
+      "userCount": 10,
+      "counselCount": 100,
+      "todayCounselCount": 5,
+      "postCount": 15
     }
-  ],
-  "generatedAt": "2026-01-25T14:00:00.000Z"
+  ]
 }
 ```
 
@@ -1711,7 +1745,7 @@ flowchart TB
 |------|:-------------:|:---------------:|:-------------:|
 | **누구?** | 개발자, 운영팀 | 신규 업체 대표/관리자 | 업체의 직원 |
 | **생성 방법** | DB 직접 생성 (Seed) | `POST /auth/signup` | `POST /users` |
-| **Tenant** | 특수 테넌트 (tenantId=0) | 자신의 테넌트 | 관리자와 같은 테넌트 |
+| **Tenant** | 특수 테넌트 (tenantId=1) | 자신의 테넌트 | 관리자와 같은 테넌트 |
 | **접근 범위** | 🌐 모든 테넌트 | 🏢 자기 테넌트만 | 🏢 자기 테넌트만 |
 | **주요 권한** | `super.*` | `roles.*`, `users.*` | 역할에 따라 다름 |
 
@@ -1771,11 +1805,11 @@ flowchart TB
 ```
 📍 FlowDesk 시스템
 │
-├── 👑 슈퍼 관리자 (tenantId: 0)
+├── 👑 슈퍼 관리자 (tenantId: 1)
 │   └── root@flowdesk.com (개발자)
 │       └── 권한: super.* (시스템 전체 관리)
 │
-├── 🏢 마케팅솔루션 (tenantId: 1)
+├── 🏢 마케팅솔루션 (tenantId: 2)
 │   ├── 👤 김철수 대표 (테넌트 관리자)
 │   │   └── 역할: 관리자 → users.*, roles.*, customers.*, counsel.*
 │   │
@@ -1784,7 +1818,7 @@ flowchart TB
 │       ├── 이민수 → 역할: 영업팀 → customers.*, counsel.*
 │       └── 최지훈 → 역할: 상담팀 → counsel.*
 │
-└── 🏢 테크스타트업 (tenantId: 2)
+└── 🏢 테크스타트업 (tenantId: 3)
     ├── 👤 정민호 대표 (테넌트 관리자)
     │   └── 역할: 관리자 → 모든 권한
     │
@@ -1945,17 +1979,17 @@ sequenceDiagram
     
     rect rgb(255, 243, 224)
         Note over Admin,System: 3️⃣ 역할별 권한 할당
-        Admin->>System: POST /roles/3/permissions
-        Note over Admin,System: 마케팅팀: [users.read, dashboard.read]
-        System-->>Admin: ✅ assignedCount: 2
+        Admin->>System: PATCH /roles/3/permissions
+        Note over Admin,System: 마케팅팀: { add: [users.read, dashboard.read] }
+        System-->>Admin: ✅ added: 2
         
-        Admin->>System: POST /roles/4/permissions
-        Note over Admin,System: 영업팀: [users.read, customers.*, counsel.*]
-        System-->>Admin: ✅ assignedCount: 8
+        Admin->>System: PATCH /roles/4/permissions
+        Note over Admin,System: 영업팀: { add: [users.read, customers.*, counsel.*] }
+        System-->>Admin: ✅ added: 8
         
-        Admin->>System: POST /roles/5/permissions
-        Note over Admin,System: 고객지원팀: [counsel.*, boards.*]
-        System-->>Admin: ✅ assignedCount: 6
+        Admin->>System: PATCH /roles/5/permissions
+        Note over Admin,System: 고객지원팀: { add: [counsel.*, boards.*] }
+        System-->>Admin: ✅ added: 6
     end
 ```
 
