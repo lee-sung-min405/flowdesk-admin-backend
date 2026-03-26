@@ -33,8 +33,8 @@ export class Counsel {
   @Column({ type: 'int', name: 'tenant_id' })
   tenantId: number;
 
-  @Column({ type: 'varchar', length: 50, nullable: true, name: 'name' })
-  name: string | null;
+  @Column({ type: 'varchar', length: 50, name: 'name' })
+  name: string;
 
   @Column({ type: 'varchar', length: 50, name: 'counsel_hp' })
   counselHp: string;

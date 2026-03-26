@@ -36,11 +36,10 @@ export class CreateCounselDto {
   @MaxLength(20)
   webCode: string;
 
-  @ApiPropertyOptional({ description: '상담자 이름', example: '홍길동', maxLength: 50 })
-  @IsOptional()
+  @ApiProperty({ description: '상담자 이름', example: '홍길동', maxLength: 50 })
   @IsString()
   @MaxLength(50)
-  name?: string;
+  name: string;
 
   @ApiProperty({ description: '상담자 전화번호', example: '010-1234-5678', maxLength: 50 })
   @IsString()

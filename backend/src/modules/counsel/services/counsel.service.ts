@@ -159,12 +159,13 @@ export class CounselService {
       cutoffDate.setDate(cutoffDate.getDate() - website.duplicateAllowAfterDays);
 
       // FOR UPDATE: 동일 조건의 동시 요청이 들어오면 두 번째 트랜잭션은 첫 번째 커밋까지 대기
+      // 중복 기준: 동일 테넌트 + 이름 + 전화번호 + 기간 이내 (IP 무관)
       const duplicateExists = await queryRunner.manager
         .createQueryBuilder(Counsel, 'c')
         .setLock('pessimistic_write')
         .where('c.tenantId = :tenantId', { tenantId })
+        .andWhere('c.name = :name', { name: dto.name })
         .andWhere('c.counselHp = :counselHp', { counselHp: dto.counselHp })
-        .andWhere('c.counselIp = :counselIp', { counselIp: clientIp })
         .andWhere('c.deleteState = :deleteState', { deleteState: DeleteState.N })
         .andWhere('c.regDtm >= :cutoffDate', { cutoffDate })
         .limit(1)
@@ -175,7 +176,7 @@ export class CounselService {
       const counsel = queryRunner.manager.create(Counsel, {
         tenantId,
         webCode: dto.webCode,
-        name: dto.name ?? null,
+        name: dto.name,
         counselHp: dto.counselHp,
         counselIp: clientIp,
         counselStat: initialStatId,

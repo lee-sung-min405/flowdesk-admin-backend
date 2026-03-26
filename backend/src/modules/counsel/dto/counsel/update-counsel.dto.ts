@@ -4,12 +4,11 @@ import { Type } from 'class-transformer';
 import { CounselFieldValueDto } from './create-counsel.dto';
 
 export class UpdateCounselDto {
-  @ApiPropertyOptional({ description: '상담자 이름', maxLength: 50, nullable: true })
+  @ApiPropertyOptional({ description: '상담자 이름', maxLength: 50 })
   @IsOptional()
-  @ValidateIf((_, value) => value !== null)
   @IsString()
   @MaxLength(50)
-  name?: string | null;
+  name?: string;
 
   @ApiPropertyOptional({ description: '상담자 전화번호', maxLength: 50 })
   @IsOptional()
