@@ -60,6 +60,9 @@ export class CounselService {
    * webCode → tenantId 조회, 차단 검증, 중복 판별 후 트랜잭션으로 저장
    */
   async createCounsel(dto: CreateCounselDto, clientIp: string): Promise<CounselDetailDto> {
+    // 전화번호 정규화: 하이픈/공백 제거 → 010-1234-5678 과 01012345678 을 동일하게 처리
+    dto.counselHp = dto.counselHp.replace(/[\s-]/g, '');
+
     // 1. webCode로 웹사이트 조회
     const website = await this.websiteRepository.findOne({
       where: { webCode: dto.webCode, isActive: 1 },
@@ -467,7 +470,7 @@ export class CounselService {
 
       // 기본 필드 업데이트
       if (dto.name !== undefined) counsel.name = dto.name;
-      if (dto.counselHp !== undefined) counsel.counselHp = dto.counselHp;
+      if (dto.counselHp !== undefined) counsel.counselHp = dto.counselHp.replace(/[\s-]/g, '');
       if (dto.empSeq !== undefined) {
         if (dto.empSeq !== null) {
           const empExists = await queryRunner.manager.findOne(User, {
