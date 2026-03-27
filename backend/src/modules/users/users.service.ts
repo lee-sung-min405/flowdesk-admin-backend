@@ -30,8 +30,8 @@ export class UsersService {
 
   async findUsers(
     tenantId: number,
-    page: number = 1,
-    limit: number = 20,
+    page?: number,
+    limit?: number,
     q?: string,
     isActive?: number,
     sort: string = 'regDtm',
@@ -61,10 +61,13 @@ export class UsersService {
 
     // 페이지네이션
     const totalItems = await queryBuilder.getCount();
-    const totalPages = Math.ceil(totalItems / limit);
-    const offset = (page - 1) * limit;
 
-    const users = await queryBuilder.skip(offset).take(limit).getMany();
+    if (page !== undefined && limit !== undefined) {
+      const offset = (page - 1) * limit;
+      queryBuilder.skip(offset).take(limit);
+    }
+
+    const users = await queryBuilder.getMany();
 
     const items: UserListItemDto[] = users.map((user) => ({
       userSeq: user.userSeq,
@@ -82,11 +85,16 @@ export class UsersService {
 
     return {
       items,
-      pageInfo: {
+      pageInfo: (page !== undefined && limit !== undefined) ? {
         currentPage: page,
         pageSize: limit,
         totalItems,
-        totalPages,
+        totalPages: Math.ceil(totalItems / limit),
+      } : {
+        currentPage: 1,
+        pageSize: totalItems,
+        totalItems,
+        totalPages: 1,
       },
     };
   }

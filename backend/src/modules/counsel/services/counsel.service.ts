@@ -223,8 +223,8 @@ export class CounselService {
   }
 
   async findCounsels(tenantId: number, query: CounselListQueryDto, empSeqFilter?: number): Promise<CounselListResponseDto> {
-    const page = query.page ?? 1;
-    const limit = Math.min(query.limit ?? 20, 100);
+    const page = query.page;
+    const limit = query.limit !== undefined ? Math.min(query.limit, 100) : undefined;
 
     const qb = this.counselRepository
       .createQueryBuilder('c')
@@ -287,10 +287,10 @@ export class CounselService {
     qb.orderBy('c.regDtm', 'DESC');
 
     const totalItems = await qb.getCount();
-    const items = await qb
-      .skip((page - 1) * limit)
-      .take(limit)
-      .getMany();
+    if (page !== undefined && limit !== undefined) {
+      qb.skip((page - 1) * limit).take(limit);
+    }
+    const items = await qb.getMany();
 
     // 조회된 상담들의 동적 필드 값을 단일 쿼리로 배치 조회
     const fieldValuesMap = new Map<number, CounselFieldValueResponseDto[]>();
@@ -324,11 +324,16 @@ export class CounselService {
 
     return {
       items: items.map((c) => this.toCounselListItem(c, fieldValuesMap.get(Number(c.counselSeq)) ?? [])),
-      pageInfo: {
+      pageInfo: (page !== undefined && limit !== undefined) ? {
         currentPage: page,
         pageSize: limit,
         totalItems,
         totalPages: Math.ceil(totalItems / limit),
+      } : {
+        currentPage: 1,
+        pageSize: totalItems,
+        totalItems,
+        totalPages: 1,
       },
     };
   }

@@ -3,14 +3,14 @@ import { IsOptional, IsInt, IsString, IsIn, Min, Matches } from 'class-validator
 import { Type } from 'class-transformer';
 
 export class CounselListQueryDto {
-  @ApiPropertyOptional({ description: '페이지 번호 (최솟값: 1)', example: 1, default: 1, minimum: 1 })
+  @ApiPropertyOptional({ description: '페이지 번호 (최솟값: 1)', example: 1, minimum: 1 })
   @IsOptional()
   @IsInt()
   @Min(1)
   @Type(() => Number)
   page?: number;
 
-  @ApiPropertyOptional({ description: '페이지당 항목 수 (최솟값: 1, 최댓값: 100)', example: 20, default: 20, minimum: 1, maximum: 100 })
+  @ApiPropertyOptional({ description: '페이지당 항목 수 (최솟값: 1, 최댓값: 100)', example: 20, minimum: 1, maximum: 100 })
   @IsOptional()
   @IsInt()
   @Min(1)

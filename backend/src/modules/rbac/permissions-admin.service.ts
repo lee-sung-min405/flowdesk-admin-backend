@@ -31,8 +31,8 @@ export class PermissionsAdminService {
   ) {}
 
   async findAllPages(
-    page: number = 1,
-    limit: number = 20,
+    page?: number,
+    limit?: number,
     q?: string,
     parentId?: number | 'null' | 'all',
     isActive?: number,
@@ -150,11 +150,17 @@ export class PermissionsAdminService {
       }
 
       const totalItems = items.length;
-      const totalPages = Math.ceil(totalItems / limit);
-      const offset = (page - 1) * limit;
+      if (page !== undefined && limit !== undefined) {
+        const totalPages = Math.ceil(totalItems / limit);
+        const offset = (page - 1) * limit;
+        return {
+          items: items.slice(offset, offset + limit),
+          pageInfo: { page, limit, totalItems, totalPages },
+        };
+      }
       return {
-        items: items.slice(offset, offset + limit),
-        pageInfo: { page, limit, totalItems, totalPages },
+        items,
+        pageInfo: { page: 1, limit: totalItems, totalItems, totalPages: 1 },
       };
     }
 
@@ -162,16 +168,22 @@ export class PermissionsAdminService {
     queryBuilder.orderBy(`page.${sortField}`, order).addOrderBy('page.pageId', 'ASC');
 
     const totalItems = await queryBuilder.getCount();
-    const totalPages = Math.ceil(totalItems / limit);
-    const offset = (page - 1) * limit;
-    queryBuilder.skip(offset).take(limit);
+    if (page !== undefined && limit !== undefined) {
+      const offset = (page - 1) * limit;
+      queryBuilder.skip(offset).take(limit);
+    }
 
     const rawResults = await queryBuilder.getRawAndEntities();
     const items: PageListItemDto[] = rawResults.entities.map((e, i) => mapToDto(e, rawResults.raw[i]));
 
     return {
       items,
-      pageInfo: { page, limit, totalItems, totalPages },
+      pageInfo: (page !== undefined && limit !== undefined) ? {
+        page, limit, totalItems,
+        totalPages: Math.ceil(totalItems / limit),
+      } : {
+        page: 1, limit: totalItems, totalItems, totalPages: 1,
+      },
     };
   }
 
@@ -310,8 +322,8 @@ export class PermissionsAdminService {
   }
 
   async findAllActions(
-    page: number = 1,
-    limit: number = 20,
+    page?: number,
+    limit?: number,
     q?: string,
     isActive?: number,
     sort: string = 'actionId',
@@ -350,11 +362,12 @@ export class PermissionsAdminService {
 
     // DB 레벨 전체 개수 조회
     const totalItems = await queryBuilder.getCount();
-    const totalPages = Math.ceil(totalItems / limit);
 
     // DB 레벨 페이지네이션
-    const offset = (page - 1) * limit;
-    queryBuilder.skip(offset).take(limit);
+    if (page !== undefined && limit !== undefined) {
+      const offset = (page - 1) * limit;
+      queryBuilder.skip(offset).take(limit);
+    }
 
     const rawResults = await queryBuilder.getRawAndEntities();
 
@@ -368,7 +381,12 @@ export class PermissionsAdminService {
 
     return {
       items,
-      pageInfo: { page, limit, totalItems, totalPages },
+      pageInfo: (page !== undefined && limit !== undefined) ? {
+        page, limit, totalItems,
+        totalPages: Math.ceil(totalItems / limit),
+      } : {
+        page: 1, limit: totalItems, totalItems, totalPages: 1,
+      },
     };
   }
 
@@ -458,8 +476,8 @@ export class PermissionsAdminService {
   }
 
   async findAllPermissions(
-    page: number = 1,
-    limit: number = 20,
+    page?: number,
+    limit?: number,
     q?: string,
     pageId?: number,
     actionId?: number,
@@ -502,11 +520,12 @@ export class PermissionsAdminService {
 
     // DB 레벨 전체 개수
     const totalItems = await queryBuilder.getCount();
-    const totalPages = Math.ceil(totalItems / limit);
 
     // DB 레벨 페이지네이션
-    const offset = (page - 1) * limit;
-    queryBuilder.skip(offset).take(limit);
+    if (page !== undefined && limit !== undefined) {
+      const offset = (page - 1) * limit;
+      queryBuilder.skip(offset).take(limit);
+    }
 
     const permissions = await queryBuilder.getMany();
 
@@ -531,7 +550,12 @@ export class PermissionsAdminService {
 
     return {
       items,
-      pageInfo: { page, limit, totalItems, totalPages },
+      pageInfo: (page !== undefined && limit !== undefined) ? {
+        page, limit, totalItems,
+        totalPages: Math.ceil(totalItems / limit),
+      } : {
+        page: 1, limit: totalItems, totalItems, totalPages: 1,
+      },
     };
   }
 

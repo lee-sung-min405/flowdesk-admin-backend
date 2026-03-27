@@ -11,7 +11,6 @@ import {
   HttpCode,
   HttpStatus,
   ParseIntPipe,
-  DefaultValuePipe,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -65,8 +64,8 @@ export class BlockIpController {
   @ApiForbiddenResponse({ type: StandardErrorResponseDto })
   async findAll(
     @Req() request: AuthenticatedRequest,
-    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
-    @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number,
+    @Query('page', new ParseIntPipe({ optional: true })) page?: number,
+    @Query('limit', new ParseIntPipe({ optional: true })) limit?: number,
     @Query('q') q?: string,
     @Query('isActive', new ParseIntPipe({ optional: true })) isActive?: number,
   ): Promise<BlockIpListResponseDto> {

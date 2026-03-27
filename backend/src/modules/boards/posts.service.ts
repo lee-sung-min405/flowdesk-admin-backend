@@ -48,8 +48,8 @@ export class PostsService {
   async findPosts(
     tenantId: number,
     boardId: number,
-    page: number,
-    limit: number,
+    page?: number,
+    limit?: number,
   ): Promise<PostListResponseDto> {
     // board 존재 + tenant 귀속 검증
     await this.boardsService.getBoardById(tenantId, boardId);
@@ -57,7 +57,7 @@ export class PostsService {
     // IDX_72f9903e6eebcbeb5e0be069a0 (tenant_id, is_active, is_notice, created_at) 활용
     // IDX_09a47ccdc7a71e08e14c760cf1 (board_id, tenant_id) 활용
     const now = new Date();
-    const [posts, totalItems] = await this.postRepository
+    const qb = this.postRepository
       .createQueryBuilder('p')
       .where('p.tenantId = :tenantId', { tenantId })
       .andWhere('p.isActive = 1')
@@ -66,18 +66,26 @@ export class PostsService {
       .andWhere('(p.startDtm IS NULL OR p.startDtm <= :now)', { now })
       .andWhere('(p.endDtm IS NULL OR p.endDtm >= :now)', { now })
       .orderBy('p.isNotice', 'DESC')
-      .addOrderBy('p.createdAt', 'DESC')
-      .skip((page - 1) * limit)
-      .take(limit)
-      .getManyAndCount();
+      .addOrderBy('p.createdAt', 'DESC');
+
+    if (page !== undefined && limit !== undefined) {
+      qb.skip((page - 1) * limit).take(limit);
+    }
+
+    const [posts, totalItems] = await qb.getManyAndCount();
 
     return {
       items: posts.map((p) => this.toListItem(p)),
-      pageInfo: {
+      pageInfo: (page !== undefined && limit !== undefined) ? {
         currentPage: page,
         pageSize: limit,
         totalItems,
         totalPages: Math.ceil(totalItems / limit),
+      } : {
+        currentPage: 1,
+        pageSize: totalItems,
+        totalItems,
+        totalPages: 1,
       },
     };
   }

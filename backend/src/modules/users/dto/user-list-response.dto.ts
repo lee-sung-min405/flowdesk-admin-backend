@@ -11,7 +11,7 @@ export class UserListResponseDto {
 
   @ApiProperty({ 
     description: '페이지네이션 정보', 
-    type: PageInfoDto 
+    type: PageInfoDto,
   })
   pageInfo: PageInfoDto;
 }

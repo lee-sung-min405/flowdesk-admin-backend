@@ -24,7 +24,7 @@ export class WebsiteListResponseDto {
 
   @ApiProperty({ 
     description: '페이지 정보', 
-    type: PageInfoDto 
+    type: PageInfoDto,
   })
   pageInfo: PageInfoDto;
 }

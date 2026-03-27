@@ -25,8 +25,8 @@ export class TenantsService {
   ) {}
 
   async findTenants(
-    page: number = 1,
-    limit: number = 20,
+    page?: number,
+    limit?: number,
     q?: string,
     isActive?: number,
     sort: string = 'tenantId',
@@ -61,8 +61,10 @@ export class TenantsService {
     queryBuilder.orderBy(`tenant.${sortField}`, order);
 
     // 페이지네이션
-    const skip = (page - 1) * limit;
-    queryBuilder.skip(skip).take(limit);
+    if (page !== undefined && limit !== undefined) {
+      const skip = (page - 1) * limit;
+      queryBuilder.skip(skip).take(limit);
+    }
 
     // COUNT 집계 추가
     queryBuilder
@@ -85,13 +87,18 @@ export class TenantsService {
       userCount: parseInt(result.raw[index].userCount || '0'),
     }));
 
-    const totalPages = Math.ceil(totalItems / limit);
+    const totalPages = (page !== undefined && limit !== undefined) ? Math.ceil(totalItems / limit) : 1;
 
-    const pageInfo: PageInfoDto = {
+    const pageInfo: PageInfoDto = (page !== undefined && limit !== undefined) ? {
       currentPage: page,
       pageSize: limit,
       totalItems,
       totalPages,
+    } : {
+      currentPage: 1,
+      pageSize: totalItems,
+      totalItems,
+      totalPages: 1,
     };
 
     return { items, pageInfo };

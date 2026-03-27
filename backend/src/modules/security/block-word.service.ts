@@ -19,8 +19,8 @@ export class BlockWordService {
 
   async findBlockWords(
     tenantId: number,
-    page: number = 1,
-    limit: number = 20,
+    page?: number,
+    limit?: number,
     q?: string,
     isActive?: number,
     matchType?: MatchType,
@@ -47,18 +47,26 @@ export class BlockWordService {
     queryBuilder.orderBy('blockWord.createdAt', 'DESC');
 
     const totalItems = await queryBuilder.getCount();
-    const totalPages = Math.ceil(totalItems / limit);
-    const offset = (page - 1) * limit;
 
-    const items = await queryBuilder.skip(offset).take(limit).getMany();
+    if (page !== undefined && limit !== undefined) {
+      const offset = (page - 1) * limit;
+      queryBuilder.skip(offset).take(limit);
+    }
+
+    const items = await queryBuilder.getMany();
 
     return {
       items,
-      pageInfo: {
+      pageInfo: (page !== undefined && limit !== undefined) ? {
         currentPage: page,
         pageSize: limit,
         totalItems,
-        totalPages,
+        totalPages: Math.ceil(totalItems / limit),
+      } : {
+        currentPage: 1,
+        pageSize: totalItems,
+        totalItems,
+        totalPages: 1,
       },
     };
   }

@@ -83,14 +83,14 @@ export class PermissionsAdminController {
     name: 'page', 
     required: false, 
     type: Number, 
-    description: '페이지 번호 (기본값: 1)',
+    description: '페이지 번호',
     example: 1
   })
   @ApiQuery({ 
     name: 'limit', 
     required: false, 
     type: Number, 
-    description: '페이지당 항목 수 (기본값: 20)',
+    description: '페이지당 항목 수',
     example: 20
   })
   @ApiQuery({ 
@@ -150,8 +150,8 @@ export class PermissionsAdminController {
     type: FindPagesResponseDto,
   })
   async findAllPages(
-    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
-    @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number,
+    @Query('page', new ParseIntPipe({ optional: true })) page?: number,
+    @Query('limit', new ParseIntPipe({ optional: true })) limit?: number,
     @Query('q') q?: string,
     @Query('parentId') parentId: string = 'all',
     @Query('isActive') isActive?: string,
@@ -293,8 +293,8 @@ export class PermissionsAdminController {
     type: FindActionsResponseDto,
   })
   async findAllActions(
-    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
-    @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number,
+    @Query('page', new ParseIntPipe({ optional: true })) page?: number,
+    @Query('limit', new ParseIntPipe({ optional: true })) limit?: number,
     @Query('q') q?: string,
     @Query('isActive', new ParseIntPipe({ optional: true })) isActive?: number,
     @Query('sort', new DefaultValuePipe('actionId')) sort?: string,
@@ -417,8 +417,8 @@ export class PermissionsAdminController {
 - action: 연결된 액션 정보 (actionId, actionName, displayName)
     `.trim()
   })
-  @ApiQuery({ name: 'page', required: false, type: Number, description: '페이지 번호 (기본값: 1)', example: 1 })
-  @ApiQuery({ name: 'limit', required: false, type: Number, description: '페이지당 항목 수 (기본값: 20)', example: 20 })
+  @ApiQuery({ name: 'page', required: false, type: Number, description: '페이지 번호', example: 1 })
+  @ApiQuery({ name: 'limit', required: false, type: Number, description: '페이지당 항목 수', example: 20 })
   @ApiQuery({
     name: 'q',
     required: false,
@@ -444,8 +444,8 @@ export class PermissionsAdminController {
     type: FindPermissionsResponseDto,
   })
   async findAllPermissions(
-    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
-    @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number,
+    @Query('page', new ParseIntPipe({ optional: true })) page?: number,
+    @Query('limit', new ParseIntPipe({ optional: true })) limit?: number,
     @Query('q') q?: string,
     @Query('pageId', new ParseIntPipe({ optional: true })) pageId?: number,
     @Query('actionId', new ParseIntPipe({ optional: true })) actionId?: number,

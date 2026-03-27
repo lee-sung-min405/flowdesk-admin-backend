@@ -70,15 +70,16 @@ export class RolesController {
 - order: 정렬 순서 (ASC, DESC)
 
 **페이지네이션:**
-- page: 페이지 번호 (기본값: 1)
-- limit: 페이지당 항목 수 (기본값: 20)
+- page: 페이지 번호
+- limit: 페이지당 항목 수
+- 미전송 시 전체 데이터 반환
 
 **응답:**
 - items: 역할 목록 (userCount, permissionCount 포함)
-- pageInfo: 페이지네이션 정보` 
+- pageInfo: 페이지네이션 정보 (미전송 시 null)` 
   })
-  @ApiQuery({ name: 'page', required: false, type: Number, description: '페이지 번호 (기본값: 1)' })
-  @ApiQuery({ name: 'limit', required: false, type: Number, description: '페이지당 항목 수 (기본값: 20)' })
+  @ApiQuery({ name: 'page', required: false, type: Number, description: '페이지 번호' })
+  @ApiQuery({ name: 'limit', required: false, type: Number, description: '페이지당 항목 수' })
   @ApiQuery({ name: 'q', required: false, type: String, description: '검색어' })
   @ApiQuery({ name: 'isActive', required: false, type: Number, enum: [0, 1], description: '활성 상태' })
   @ApiQuery({ name: 'sort', required: false, type: String, enum: ['roleId', 'roleName', 'displayName', 'createdAt', 'updatedAt'], description: '정렬 필드' })
@@ -90,8 +91,8 @@ export class RolesController {
   })
   async findAll(
     @Req() request: AuthenticatedRequest,
-    @Query('page') page?: number,
-    @Query('limit') limit?: number,
+    @Query('page', new ParseIntPipe({ optional: true })) page?: number,
+    @Query('limit', new ParseIntPipe({ optional: true })) limit?: number,
     @Query('q') q?: string,
     @Query('isActive') isActive?: number,
     @Query('sort') sort?: string,

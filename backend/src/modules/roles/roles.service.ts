@@ -30,8 +30,8 @@ export class RolesService {
 
   async findRoles(
     tenantId: number,
-    page: number = 1,
-    limit: number = 20,
+    page?: number,
+    limit?: number,
     q?: string,
     isActive?: number,
     sort: string = 'roleId',
@@ -68,8 +68,10 @@ export class RolesService {
     queryBuilder.orderBy(`role.${sortField}`, order);
 
     // 페이지네이션
-    const skip = (page - 1) * limit;
-    queryBuilder.skip(skip).take(limit);
+    if (page !== undefined && limit !== undefined) {
+      const skip = (page - 1) * limit;
+      queryBuilder.skip(skip).take(limit);
+    }
 
     // COUNT 집계 추가
     queryBuilder
@@ -95,13 +97,18 @@ export class RolesService {
       permissionCount: parseInt(result.raw[index].permissionCount || '0'),
     }));
 
-    const totalPages = Math.ceil(totalItems / limit);
+    const totalPages = (page !== undefined && limit !== undefined) ? Math.ceil(totalItems / limit) : 1;
 
-    const pageInfo: PageInfoDto = {
+    const pageInfo: PageInfoDto = (page !== undefined && limit !== undefined) ? {
       currentPage: page,
       pageSize: limit,
       totalItems,
       totalPages,
+    } : {
+      currentPage: 1,
+      pageSize: totalItems,
+      totalItems,
+      totalPages: 1,
     };
 
     return { items, pageInfo };

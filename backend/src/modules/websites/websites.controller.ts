@@ -11,7 +11,6 @@ import {
   HttpCode,
   HttpStatus,
   ParseIntPipe,
-  DefaultValuePipe,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -65,8 +64,8 @@ export class WebsitesController {
 - sort: 정렬 필드 (webCode, webUrl, webTitle, createdAt, updatedAt, isActive)
 - order: ASC 또는 DESC`,
   })
-  @ApiQuery({ name: 'page', required: false, description: '페이지 번호 (기본값: 1)', example: 1 })
-  @ApiQuery({ name: 'limit', required: false, description: '페이지당 항목 수 (기본값: 20)', example: 20 })
+  @ApiQuery({ name: 'page', required: false, description: '페이지 번호', example: 1 })
+  @ApiQuery({ name: 'limit', required: false, description: '페이지당 항목 수', example: 20 })
   @ApiQuery({ name: 'q', required: false, description: '검색어 (webCode, webUrl, webTitle)' })
   @ApiQuery({ name: 'isActive', required: false, description: '활성 상태 필터 (0: 비활성, 1: 활성)' })
   @ApiQuery({ name: 'sort', required: false, description: '정렬 필드', example: 'createdAt' })
@@ -85,8 +84,8 @@ export class WebsitesController {
   })
   async findAll(
     @Req() request: AuthenticatedRequest,
-    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
-    @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number,
+    @Query('page', new ParseIntPipe({ optional: true })) page?: number,
+    @Query('limit', new ParseIntPipe({ optional: true })) limit?: number,
     @Query('q') q?: string,
     @Query('isActive', new ParseIntPipe({ optional: true })) isActive?: number,
     @Query('sort') sort?: string,

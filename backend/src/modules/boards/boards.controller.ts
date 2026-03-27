@@ -9,7 +9,6 @@ import {
   Query,
   Req,
   ParseIntPipe,
-  DefaultValuePipe,
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
@@ -212,15 +211,15 @@ export class BoardsController {
 **인덱스:** \`IDX_72f9903e6eebcbeb5e0be069a0\` (tenant_id, is_active, is_notice, created_at)`,
   })
   @ApiParam({ name: 'boardId', type: 'integer', description: '게시판 ID' })
-  @ApiQuery({ name: 'page', required: false, description: '페이지 번호 (기본값: 1)', example: 1 })
-  @ApiQuery({ name: 'limit', required: false, description: '페이지당 항목 수 (기본값: 20)', example: 20 })
+  @ApiQuery({ name: 'page', required: false, description: '페이지 번호', example: 1 })
+  @ApiQuery({ name: 'limit', required: false, description: '페이지당 항목 수', example: 20 })
   @ApiOkResponse({ description: '게시글 목록 조회 성공', type: PostListResponseDto })
   @ApiNotFoundResponse({ description: '게시판 없음 (RES001)', type: StandardErrorResponseDto })
   async findPosts(
     @Req() request: AuthenticatedRequest,
     @Param('boardId', ParseIntPipe) boardId: number,
-    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
-    @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number,
+    @Query('page', new ParseIntPipe({ optional: true })) page?: number,
+    @Query('limit', new ParseIntPipe({ optional: true })) limit?: number,
   ): Promise<PostListResponseDto> {
     return this.postsService.findPosts(request.user.tenantId, boardId, page, limit);
   }
