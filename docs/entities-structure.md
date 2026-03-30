@@ -810,7 +810,7 @@ backend/src/modules/
 | `counselSeq` | PK, bigint | 상담 일련번호 (AUTO_INCREMENT) |
 | `webCode` | varchar(20) | 웹사이트 코드 (FK → Website) |
 | `tenantId` | int | 테넌트 ID |
-| `name` | varchar(50) | 신청자명 (nullable) |
+| `name` | varchar(50) | 신청자명 (NOT NULL) |
 | `counselHp` | varchar(50) | 신청인 휴대전화 |
 | `counselIp` | varchar(50) | 신청인 IP |
 | `counselStat` | int | 상담 상태 ID (FK → TenantStatus) |
@@ -844,8 +844,8 @@ backend/src/modules/
 **비즈니스 로직**:
 - **Public API 생성**: `POST /counsels`는 인증 없이 호출 가능. `webCode`로 테넌트를 식별
 - **보안 차단**: 생성 시 휴대폰 → IP → 금칙어 3단계 검증
-- **중복 감지**: 동일 `counselHp` + `counselIp` 조합이 `duplicateAllowAfterDays` 이내 존재 시 `duplicateState='Y'`
-- **Advisory Lock**: SHA-256 해시키 `counsel:{webCode}:{HP}:{IP}` 로 MySQL `GET_LOCK` 사용, 동시 요청 Race Condition 방지
+- **중복 감지**: 동일 `name` + `counselHp` 조합이 `duplicateAllowAfterDays` 이내 존재 시 `duplicateState='Y'` (IP 무관)
+- **동시성 제어**: `SELECT ... FOR UPDATE` (pessimistic_write) 락으로 동시 요청 Race Condition 방지
 - **상태 자동 할당**: 중복이면 `DUPLICATE` statusKey, 아니면 `NEW` statusKey 자동 배정
 - **소프트 삭제**: `deleteState='Y'`로 논리 삭제, 모든 조회 쿼리에서 `deleteState='N'` 필터 적용
 

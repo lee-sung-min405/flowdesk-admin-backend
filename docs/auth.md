@@ -350,7 +350,7 @@
 
 | API | 테넌트 식별 방식 | 보안 대체 수단 |
 |-----|-----------------|---------------|
-| `POST /counsels` | `webCode`로 Website 조회 → `tenantId` 추출 | 보안 3단계 검증 + Advisory Lock |
+| `POST /counsels` | `webCode`로 Website 조회 → `tenantId` 추출 | 보안 3단계 검증 + SELECT FOR UPDATE |
 | `POST /auth/signup` | 신규 생성 | Rate Limiting (3회/60초) |
 | `POST /auth/login` | `tenantName`으로 조회 | Rate Limiting (5회/60초) |
 | `POST /auth/refresh` | Refresh Token에 `userSeq` 포함 | Rate Limiting (10회/60초) |
@@ -364,9 +364,9 @@
 
 **보안 대체 수단**:
 - **3단계 보안 검증**: 휴대폰 차단 → IP 차단 → 금칙어 차단 (순차 실행)
-- **Advisory Lock**: SHA-256 해시 기반 MySQL `GET_LOCK`으로 동시 요청 중복 방지
+- **동시성 제어**: `SELECT ... FOR UPDATE` (pessimistic_write) 락으로 동시 요청 중복 방지
 - **클라이언트 IP 자동 감지**: `request.ip`에서 추출하여 `counselIp`에 기록
-- **중복 감지**: 동일 HP + IP 조합이 `duplicateAllowAfterDays` 이내 존재 시 중복 처리
+- **중복 감지**: 동일 name + counselHp 조합이 `duplicateAllowAfterDays` 이내 존재 시 중복 처리 (IP 무관)
 
 **인증 없는 API에서 악용 방지**:
 | 위협 | 대응 |
@@ -374,7 +374,7 @@
 | 스팸 번호 대량 접수 | 휴대폰 차단 목록 (BlockHp) |
 | 특정 IP에서 반복 접수 | IP 차단 목록 (BlockIp) |
 | 광고/욕설 포함 접수 | 금칙어 차단 (BlockWord, EXACT/CONTAINS/REGEX) |
-| 동시 중복 요청 (Race Condition) | Advisory Lock (SHA-256 해시키) |
+| 동시 중복 요청 (Race Condition) | SELECT ... FOR UPDATE (pessimistic_write) |
 | 기간 내 동일 고객 중복 접수 | duplicateAllowAfterDays 기반 중복 감지 |
 
 ---

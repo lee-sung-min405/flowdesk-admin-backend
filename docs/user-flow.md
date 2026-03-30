@@ -2366,7 +2366,7 @@ flowchart TB
     style WebsiteManagement fill:#e3f2fd
 ```
 
-> **핵심**: `duplicateAllowAfterDays`는 같은 HP + IP 조합의 상담이 이 일수 이내에 이미 존재하면 중복으로 판정하는 기준.
+> **핵심**: `duplicateAllowAfterDays`는 같은 이름(name) + 전화번호(counselHp) 조합의 상담이 이 일수 이내에 이미 존재하면 중복으로 판정하는 기준. (IP 무관)
 
 ---
 
@@ -2436,7 +2436,7 @@ flowchart TB
     subgraph Phase1["1️⃣ 상담 접수"]
         A1["고객이 랜딩 페이지에서<br/>상담 신청 (Public API)"]
         A2["보안 3단계 검증"]
-        A3["Advisory Lock<br/>중복 감지"]
+        A3["SELECT FOR UPDATE<br/>중복 감지"]
         A4["상담 생성<br/>(NEW or DUPLICATE)"]
     end
     
@@ -2494,22 +2494,20 @@ sequenceDiagram
     end
     
     rect rgb(225, 245, 254)
-        Note over Service,DB: 3️⃣ Advisory Lock + 중복 감지
-        Service->>DB: GET_LOCK(SHA256('counsel:SITE001:HP:IP'), 0)
-        DB-->>Service: ✅ Lock 획득
-        
-        Service->>DB: SELECT counsel WHERE hp+ip<br/>within duplicateAllowAfterDays
+        Note over Service,DB: 3️⃣ 트랜잭션 내 중복 감지 + 저장
+        Service->>DB: BEGIN TRANSACTION
+        Service->>DB: SELECT counsel WHERE name+counselHp<br/>within duplicateAllowAfterDays FOR UPDATE
         DB-->>Service: 없음 → NEW 상태 할당
     end
     
     rect rgb(232, 245, 233)
-        Note over Service,DB: 4️⃣ 상담 생성 (Transaction)
+        Note over Service,DB: 4️⃣ 상담 생성 (같은 Transaction)
         Service->>DB: INSERT counsel (status=NEW)
         Service->>DB: INSERT counsel_field_value[]
         Service->>DB: INSERT counsel_log (logNo=1)
         DB-->>Service: counselSeq = 100
         
-        Service->>DB: RELEASE_LOCK(...)
+        Service->>DB: COMMIT (FOR UPDATE 락 해제)
     end
     
     Service-->>API: CounselDetailDto

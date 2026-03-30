@@ -33,7 +33,7 @@
 - 관리자는 자신의 회사에 소속된 팀원만 추가하고 관리할 수 있다
 - 모든 API 요청은 요청자의 회사 스코프 내에서만 데이터를 조회하고 수정한다
 - 역할 기반 접근 제어(RBAC)로 회사 내 권한을 세분화한다
-- 상담 신청 Public API는 인증 없이 호출 가능하며, 보안 3단계 검증 + Advisory Lock으로 보호된다
+- 상담 신청 Public API는 인증 없이 호출 가능하며, 보안 3단계 검증 + SELECT FOR UPDATE 동시성 제어로 보호된다
 - 테넌트별 동적 필드 정의로 상담 입력 양식을 커스터마이징할 수 있다
 
 ### 1.3 기술 스택
@@ -297,7 +297,7 @@ JWT 인증 + RBAC 권한 검증을 한 번에 적용하는 복합 데코레이�
 
 하나의 트랜잭션으로 순차 생성:
 
-1. **Tenant** 생성 (`tenantName` = companyName, `displayName` = companyName, `isActive` = 1)
+1. **Tenant** 생성 (`tenantName` = dto.tenantName, `displayName` = companyName, `isActive` = 1)
 2. **TenantStatus** 5종 자동 생성:
    - `NEW` (sortOrder: 1)
    - `DUPLICATE` (sortOrder: 2)
@@ -529,7 +529,8 @@ Rate Limit: 3회/60초
 
 | 필드 | 타입 | 필수 | 검증 | 설명 |
 |------|------|------|------|------|
-| companyName | string | ✅ | minLength(2) | 회사명 (tenantName으로 사용) |
+| companyName | string | ✅ | minLength(2) | 회사명 (displayName으로 사용) |
+| tenantName | string | ✅ | minLength(2) | 테넌트 식별자 (영문/숫자/언더스코어 권장) |
 | adminName | string | ✅ | minLength(2) | 관리자 이름 |
 | email | string | ✅ | @IsEmail | 관리자 이메일 (userId로 사용) |
 | phone | string | ❌ | @IsOptional | 관리자 전화번호 |
@@ -693,8 +694,8 @@ Auth: `@RequireAuth('users', 'read')`
 
 | 파라미터 | 타입 | 기본값 | 설명 |
 |----------|------|--------|------|
-| page | number | 1 | 페이지 번호 |
-| limit | number | 20 | 페이지당 항목 수 |
+| page | number | - | 페이지 번호 (선택적, 미전송 시 전체 조회) |
+| limit | number | - | 페이지당 항목 수 (선택적) |
 | q | string | - | 검색 (userId, userName, corpName, userEmail) |
 | isActive | number | - | 상태 필터 (0 또는 1) |
 | sort | string | `regDtm` | 정렬 필드 (userSeq, userId, userName, corpName, regDtm, isActive) |
@@ -866,8 +867,8 @@ Auth: `@RequireAuth('roles', 'read')`
 
 | 파라미터 | 타입 | 기본값 | 설명 |
 |----------|------|--------|------|
-| page | number | 1 | 페이지 번호 |
-| limit | number | 20 | 페이지당 항목 수 |
+| page | number | - | 페이지 번호 (선택적, 미전송 시 전체 조회) |
+| limit | number | - | 페이지당 항목 수 (선택적) |
 | q | string | - | 검색 (roleName, displayName, description) |
 | isActive | number | - | 상태 필터 (0 또는 1) |
 | sort | string | `roleId` | 정렬 필드 (roleId, roleName, displayName, createdAt, updatedAt) |
@@ -1555,16 +1556,16 @@ Auth: `@RequireAuth('counsels.dashboard', 'read')`
 4. 금칙어 (이름 + 메모) → 400 (`VAL001`)
 5. tenant_status에 NEW/DUPLICATE 상태 존재 여부 → 400 (`VAL001`)
 6. 동적 필드 fieldId 활성 여부 → 400 (`VAL001`)
-7. Advisory Lock 경합 (동일 webCode + 전화번호 + IP) → 409 (`BIZ001`)
+7. `SELECT ... FOR UPDATE` 락 경합 (동일 이름 + 전화번호) → 409 (`BIZ001`)
 
-**중복 판별:** 동일 전화번호 + IP가 `Website.duplicateAllowAfterDays` 이내 존재 → `duplicateState = 'Y'`
+**중복 판별:** 동일 이름 + 전화번호가 `Website.duplicateAllowAfterDays` 이내 존재 → `duplicateState = 'Y'` (IP 무관)
 
 **Request Body** (`CreateCounselDto`)
 
 | 필드 | 타입 | 필수 | 설명 |
 |------|------|------|------|
 | webCode | string | ✅ | 웹사이트 코드 (max 20) |
-| name | string | ❌ | 이름 (max 50) |
+| name | string | ✅ | 이름 (max 50) |
 | counselHp | string | ✅ | 전화번호 (max 50) |
 | counselSource | string | ❌ | UTM source (max 50) |
 | counselMedium | string | ❌ | UTM medium (max 50) |
@@ -1593,8 +1594,8 @@ Auth: `@RequireAuth('counsels', 'read')`
 
 | 파라미터 | 타입 | 기본값 | 설명 |
 |----------|------|--------|------|
-| page | number | 1 | 페이지 번호 |
-| limit | number | 20 | 페이지당 항목 수 (max 100) |
+| page | number | - | 페이지 번호 (선택적, 미전송 시 전체 조회) |
+| limit | number | - | 페이지당 항목 수 (max 100, 선택적) |
 | q | string | - | 검색 (name, counselHp, counselMemo) |
 | counselStat | number | - | 상담 상태 ID |
 | empSeq | number | - | 담당자 userSeq |
@@ -1979,7 +1980,7 @@ Auth: `@RequireAuth('counsels', 'read')`
 | counsel_seq | BIGINT | PK, AUTO_INCREMENT | 상담 시퀀스 |
 | web_code | VARCHAR(20) | FK → websites | 웹사이트 코드 |
 | tenant_id | INT | FK → tenants | 테넌트 ID |
-| name | VARCHAR(50) | NULLABLE | 이름 |
+| name | VARCHAR(50) | NOT NULL | 이름 |
 | counsel_hp | VARCHAR(50) | NOT NULL | 전화번호 |
 | counsel_ip | VARCHAR(50) | NOT NULL | IP 주소 |
 | counsel_stat | INT | FK → tenant_status | 상담 상태 ID |
@@ -2303,3 +2304,978 @@ IP 주소 기반 추적. 제한 초과 시 429 Too Many Requests 응답.
 ```
 
 예외: 게시판 목록(`GET /boards`)은 `pageInfo` 없이 `items` 배열만 반환.
+
+---
+
+# 🔧 Architecture Deep Dive (추가 분석)
+
+> 이 섹션은 기존 기술 명세서를 **실무 아키텍처 문서 수준으로 보강**하기 위해 추가되었다.
+> 기존 섹션 1~9의 텍스트 기반 설명을 Mermaid 다이어그램으로 시각화하고, 누락된 설계 관점을 보충한다.
+
+---
+
+## D-1. 전체 시스템 아키텍처
+
+기존 섹션 1~2에서 텍스트로만 기술한 시스템 구성을 하나의 다이어그램으로 표현한다.
+
+```mermaid
+graph TB
+    subgraph Client["클라이언트"]
+        BROWSER["🌐 관리자 브라우저<br/>(React/Next.js)"]
+        LANDING["📄 랜딩 페이지<br/>(상담 신청 폼)"]
+    end
+
+    subgraph Infra["인프라 계층"]
+        PROXY["Reverse Proxy<br/>(Nginx / Railway)"]
+    end
+
+    subgraph NestJS["NestJS Application (backend/)"]
+        direction TB
+        MAIN["main.ts<br/>Bootstrap"]
+
+        subgraph Middleware["미들웨어 파이프라인"]
+            HELMET["Helmet<br/>보안 헤더"]
+            CORS["CORS<br/>Origin 검증"]
+            REQID["RequestIdMiddleware<br/>X-Request-ID"]
+            THROTTLE["ThrottlerGuard<br/>Rate Limiting"]
+            VPIPE["ValidationPipe<br/>DTO 검증"]
+        end
+
+        subgraph Guards["인증/인가 계층"]
+            JWT_GUARD["JwtAuthGuard<br/>JWT 토큰 검증"]
+            JWT_STRATEGY["JwtStrategy.validate()<br/>SafeUser + permissions 빌드"]
+            PERM_GUARD["PermissionGuard<br/>RBAC 권한 검증"]
+        end
+
+        subgraph Modules["도메인 모듈 (12개)"]
+            AUTH["auth"]
+            USERS["users"]
+            ROLES["roles"]
+            RBAC["rbac"]
+            TENANTS["tenants"]
+            SUPER["super"]
+            WEBSITES["websites"]
+            SECURITY["security"]
+            BOARDS["boards"]
+            COUNSEL["counsel"]
+            HEALTH["health"]
+            CODES["codes"]
+        end
+
+        FILTER["GlobalExceptionFilter<br/>표준 에러 응답"]
+    end
+
+    subgraph DB["데이터 계층"]
+        MYSQL[("MySQL 8.x<br/>단일 DB, 논리적 격리<br/>(tenant_id)")]
+    end
+
+    subgraph Docs["API 문서"]
+        SWAGGER["Swagger UI<br/>/api (non-production)"]
+    end
+
+    BROWSER -->|"Bearer JWT"| PROXY
+    LANDING -->|"Public API<br/>(인증 없음)"| PROXY
+    PROXY --> MAIN
+    MAIN --> HELMET --> CORS --> REQID --> THROTTLE --> VPIPE
+    VPIPE --> Guards
+    JWT_GUARD --> JWT_STRATEGY
+    JWT_STRATEGY --> PERM_GUARD
+    Guards --> Modules
+    Modules --> MYSQL
+    Modules -.->|"예외 발생"| FILTER
+    FILTER -->|"{ error, meta }"| PROXY
+    MAIN -.-> SWAGGER
+```
+
+### 핵심 설계 포인트
+
+| 관점 | 설계 결정 | 근거 |
+|------|----------|------|
+| DB 격리 | 단일 DB + `tenant_id` 논리적 격리 | 테넌트 수 대비 인프라 비용 최적화, 샤딩 대비 운영 단순성 |
+| 인증 | Stateless JWT + DB-backed Refresh Token | Access Token은 DB 조회 없이 검증, Refresh Token은 서버 제어 가능 |
+| 권한 | 요청 시 `permissions` 맵 빌드 후 O(1) 룩업 | 매 API 호출마다 DB 권한 조회를 피하되, 최신 상태 반영 |
+| 에러 | 단일 `GlobalExceptionFilter`로 통합 | 내부/외부 메시지 분리, 일관된 응답 포맷 보장 |
+| 보안 | Helmet + ThrottlerGuard + ValidationPipe 전역 적용 | 설정 누락 없이 모든 엔드포인트에 적용 |
+
+---
+
+## D-2. 요청 처리 흐름 (Request Lifecycle)
+
+기존 섹션 2.1의 텍스트 흐름을 시퀀스 다이어그램으로 변환하고, 인증/비인증 경로를 구분한다.
+
+### D-2.1 인증 필요 API 요청
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant C as Client
+    participant MW as Middleware<br/>(Helmet, CORS,<br/>RequestId, Throttler,<br/>ValidationPipe)
+    participant JG as JwtAuthGuard
+    participant JS as JwtStrategy<br/>.validate()
+    participant PG as PermissionGuard
+    participant CT as Controller
+    participant SV as Service
+    participant DB as MySQL
+
+    C->>MW: GET /users<br/>Authorization: Bearer {JWT}
+    MW->>MW: ① RequestId 생성/전파
+    MW->>MW: ② ThrottlerGuard (60회/60초)
+    MW->>MW: ③ ValidationPipe (Query DTO 검증)
+    MW->>JG: ④ @UseGuards(JwtAuthGuard)
+
+    JG->>JS: ⑤ JWT 파싱 → payload
+    JS->>DB: ⑥ SELECT user WHERE userSeq = payload.sub<br/>(relations: tenant)
+    DB-->>JS: User + Tenant
+    JS->>JS: ⑦ isActive 검증
+    JS->>JS: ⑧ tokenVersion 일치 검증
+    JS->>DB: ⑨ 권한 맵 조회<br/>(Permission ⟕ Page ⟕ Action ⟕ RolePermission ⟕ UserRole)<br/>WHERE isActive=1
+    DB-->>JS: permissions[]
+    JS->>JS: ⑩ SafeUser + permissions 맵 빌드
+    JS-->>JG: request.user = SafeUser
+
+    JG->>PG: ⑪ @RequirePermission('users', 'read')
+    PG->>PG: ⑫ user.permissions['users.read'] === true?
+    PG-->>CT: ✅ 통과
+
+    CT->>SV: ⑬ findUsers(req.user.tenantId, query)
+    SV->>DB: ⑭ SELECT * FROM users<br/>WHERE tenant_id = :tenantId
+    DB-->>SV: rows
+    SV-->>CT: UserListResponseDto
+    CT-->>C: ⑮ 200 OK { items, pageInfo }
+```
+
+### D-2.2 Public API 요청 (상담 신청)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant L as 랜딩 페이지
+    participant MW as Middleware
+    participant CT as CounselController
+    participant SV as CounselService
+    participant SEC as SecurityService
+    participant DB as MySQL
+
+    L->>MW: POST /counsels<br/>(인증 없음)
+    MW->>MW: ① RequestId 생성
+    MW->>MW: ② ValidationPipe (Body DTO 검증)
+    MW->>CT: ③ 인증 Guard 없음 (Public)
+
+    CT->>SV: ④ create(dto, clientIp)
+    SV->>DB: ⑤ SELECT website WHERE webCode = :webCode
+    DB-->>SV: Website (tenantId 추출)
+
+    rect rgb(255, 240, 240)
+        Note over SV,SEC: 보안 3단계 검증
+        SV->>SEC: ⑥ 차단 HP 확인
+        SEC->>DB: SELECT block_hp WHERE tenant_id AND block_hp = :hp
+        DB-->>SEC: 결과
+        SV->>SEC: ⑦ 차단 IP 확인
+        SEC->>DB: SELECT block_ip WHERE tenant_id AND block_ip = :ip
+        DB-->>SEC: 결과
+        SV->>SEC: ⑧ 금칙어 확인 (name + memo)
+        SEC->>DB: SELECT block_word WHERE tenant_id AND is_active=1
+        DB-->>SEC: 결과 (EXACT/CONTAINS/REGEX 매칭)
+    end
+
+    rect rgb(240, 248, 255)
+        Note over SV,DB: 동시성 제어 + 중복 감지
+        SV->>DB: ⑨ SELECT ... FOR UPDATE<br/>WHERE name = :name AND counsel_hp = :hp<br/>AND reg_dtm > (NOW - duplicateAllowAfterDays)
+        DB-->>SV: 기존 건 존재 여부
+        SV->>SV: ⑩ 중복이면 duplicateState='Y'<br/>미중복이면 duplicateState='N'
+    end
+
+    SV->>DB: ⑪ INSERT counsel + fieldValues
+    DB-->>SV: 생성 완료
+    SV->>DB: ⑫ INSERT counsel_log (초기 상태 이력)
+    SV-->>CT: CounselDetailDto
+    CT-->>L: ⑬ 201 Created
+```
+
+### D-2.3 에러 발생 흐름
+
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant CT as Controller
+    participant SV as Service
+    participant GEF as GlobalExceptionFilter
+
+    C->>CT: API 요청
+    CT->>SV: 서비스 호출
+
+    alt BaseBusinessException (비즈니스 예외)
+        SV-->>GEF: throw new ValidationException('message', context)
+        GEF->>GEF: errorCode = exception.errorCode (VAL001)
+        GEF->>GEF: status = exception.statusCode (400)
+        GEF->>GEF: externalMessage = exception.externalMessage
+    else HttpException (NestJS 기본)
+        SV-->>GEF: throw new HttpException(409)
+        GEF->>GEF: status 기반 fallback 코드 매핑
+        Note over GEF: 401→AUTH001, 403→AUTH101<br/>404→NOT_FOUND, 400→VAL001<br/>409→BIZ002, 5xx→SYS001
+    else 미처리 예외
+        SV-->>GEF: throw new Error()
+        GEF->>GEF: status=500, errorCode=SYS001
+    end
+
+    GEF->>GEF: 로그 레벨 분기<br/>401/403→WARN, 5xx→ERROR, 기타→LOG
+    GEF-->>C: { error: {code, message, statusCode}, meta: {requestId, timestamp, path} }
+```
+
+---
+
+## D-3. 멀티테넌트 데이터 격리 구조
+
+기존 섹션 4에서 텍스트로 설명한 격리 방식을 다이어그램으로 시각화한다.
+
+### D-3.1 테넌트 격리 데이터 흐름
+
+```mermaid
+flowchart TB
+    subgraph Auth["인증 단계"]
+        LOGIN["POST /auth/login<br/>{tenantName, userId, password}"]
+        TENANT_RESOLVE["Tenant 조회<br/>tenantName → tenantId"]
+        JWT_ISSUE["JWT 발급<br/>{sub, tenantName, tokenVersion}"]
+    end
+
+    subgraph Request["API 요청 단계"]
+        API_CALL["GET /users<br/>Authorization: Bearer JWT"]
+        JWT_VALIDATE["JwtStrategy.validate()<br/>JWT → DB User 조회<br/>→ SafeUser.tenantId 설정"]
+    end
+
+    subgraph Service["서비스 계층"]
+        EXTRACT["req.user.tenantId 추출"]
+        QUERY["WHERE tenant_id = :tenantId<br/>모든 쿼리에 자동 적용"]
+    end
+
+    subgraph DB["MySQL"]
+        T1["tenant_id = 1<br/>🏢 슈퍼 테넌트"]
+        T2["tenant_id = 2<br/>🏢 Company A"]
+        T3["tenant_id = 3<br/>🏢 Company B"]
+    end
+
+    LOGIN --> TENANT_RESOLVE --> JWT_ISSUE
+    API_CALL --> JWT_VALIDATE
+    JWT_VALIDATE --> EXTRACT --> QUERY
+    QUERY -->|"tenantId=2"| T2
+    QUERY -.->|"접근 차단"| T1
+    QUERY -.->|"접근 차단"| T3
+
+    style T1 fill:#e3f2fd
+    style T2 fill:#c8e6c9
+    style T3 fill:#fff3e0
+```
+
+### D-3.2 엔티티 격리 분류
+
+```mermaid
+flowchart LR
+    subgraph Global["전역 카탈로그<br/>(tenant_id 없음)"]
+        PAGE["Page"]
+        ACTION["Action"]
+        PERMISSION["Permission"]
+        CODEGROUP["CodeGroup"]
+        CODE["Code"]
+    end
+
+    subgraph Tenant["테넌트 종속<br/>(tenant_id FK)"]
+        USER["User"]
+        ROLE["Role"]
+        USERROLE["UserRole"]
+        WEBSITE["Website"]
+        COUNSEL["Counsel"]
+        CFD["CounselFieldDef"]
+        CFV["CounselFieldValue"]
+        CLOG["CounselLog"]
+        CMEMO["CounselMemoLog"]
+        TSTATUS["TenantStatus"]
+        BOARD["Board"]
+        POST_E["Post"]
+        BIP["BlockIp"]
+        BHP["BlockHp"]
+        BWD["BlockWord"]
+    end
+
+    subgraph Indirect["간접 격리<br/>(FK 체인)"]
+        RPERM["RolePermission<br/>(Role.tenant_id)"]
+        RTOKEN["RefreshToken<br/>(User.tenant_id)"]
+    end
+
+    TENANT_NODE(("Tenant"))
+    TENANT_NODE -->|"1:N"| USER
+    TENANT_NODE -->|"1:N"| ROLE
+    TENANT_NODE -->|"1:N"| WEBSITE
+    TENANT_NODE -->|"1:N"| COUNSEL
+    TENANT_NODE -->|"1:N"| BOARD
+    TENANT_NODE -->|"1:N"| TSTATUS
+    TENANT_NODE -->|"1:N"| BIP
+    TENANT_NODE -->|"1:N"| BHP
+    TENANT_NODE -->|"1:N"| BWD
+    TENANT_NODE -->|"1:N"| CFD
+
+    style Global fill:#e8eaf6
+    style Tenant fill:#e8f5e9
+    style Indirect fill:#fff8e1
+```
+
+### D-3.3 슈퍼 테넌트 vs 일반 테넌트
+
+```mermaid
+flowchart TB
+    subgraph Super["슈퍼 테넌트 (tenantId = 1)"]
+        S1["super.dashboard.read"]
+        S2["super.tenants.*"]
+        S3["super.pages/actions/permissions.*"]
+        S4["일반 권한 (users.*, roles.*, ...)"]
+    end
+
+    subgraph Normal["일반 테넌트 (tenantId ≠ 1)"]
+        N1["users.*"]
+        N2["roles.*"]
+        N3["websites.*, security.*, counsels.*"]
+        N4["tenants.status.*"]
+        N5["❌ super.* 접근 불가"]
+    end
+
+    CATALOG["GET /permissions/catalog"]
+    CATALOG -->|"tenantId=1"| Super
+    CATALOG -->|"tenantId≠1"| Normal
+
+    style Super fill:#ffebee
+    style Normal fill:#e8f5e9
+    style N5 fill:#ffcdd2
+```
+
+---
+
+## D-4. RBAC 권한 시스템
+
+기존 섹션 5의 RBAC 모델을 ERD와 런타임 흐름으로 보강한다.
+
+### D-4.1 RBAC 엔티티 관계도
+
+```mermaid
+erDiagram
+    Tenant ||--o{ User : "has"
+    Tenant ||--o{ Role : "has"
+    User ||--o{ UserRole : "assigned"
+    Role ||--o{ UserRole : "assigned"
+    Role ||--o{ RolePermission : "grants"
+    Permission ||--o{ RolePermission : "granted_via"
+    Page ||--o{ Permission : "defines"
+    Action ||--o{ Permission : "defines"
+    Page ||--o| Page : "parent"
+
+    Tenant {
+        int tenant_id PK
+        varchar tenant_name UK
+        varchar display_name
+        tinyint is_active
+    }
+
+    User {
+        int user_seq PK
+        int tenant_id FK
+        varchar user_id
+        varchar user_pwd
+        int token_version
+        tinyint is_active
+    }
+
+    Role {
+        int role_id PK
+        int tenant_id FK
+        varchar role_name
+        varchar display_name
+        tinyint is_active
+    }
+
+    UserRole {
+        int user_seq PK_FK
+        int tenant_id PK
+        int role_id PK_FK
+    }
+
+    RolePermission {
+        int role_id PK_FK
+        int permission_id PK_FK
+    }
+
+    Permission {
+        int permission_id PK
+        int page_id FK
+        int action_id FK
+        varchar display_name
+        tinyint is_active
+    }
+
+    Page {
+        int page_id PK
+        int parent_id FK
+        varchar page_name UK
+        varchar path
+        varchar display_name
+        tinyint is_active
+        tinyint sort_order
+    }
+
+    Action {
+        int action_id PK
+        varchar action_name UK
+        varchar display_name
+        tinyint is_active
+    }
+```
+
+### D-4.2 권한 검증 런타임 흐름
+
+```mermaid
+flowchart TB
+    subgraph Build["JwtStrategy.validate() — 권한 맵 빌드"]
+        Q1["SQL 조인 쿼리 실행"]
+        Q2["UserRole ⟕ Role<br/>⟕ RolePermission ⟕ Permission<br/>⟕ Page ⟕ Action"]
+        Q3["WHERE user_seq = :userSeq<br/>AND 모든 엔티티 isActive = 1"]
+        Q4["PermissionUtil.buildKey(pageName, actionName)<br/>→ 'users.read', 'roles.delete', ..."]
+        Q5["permissions = { 'users.read': true, 'roles.delete': true, ... }"]
+    end
+
+    subgraph Check["PermissionGuard — 요청 시 검증"]
+        R1["@RequireAuth('users', 'read')"]
+        R2["Reflector → { page: 'users', action: 'read' }"]
+        R3["buildKey → 'users.read'"]
+        R4{"user.permissions['users.read']<br/>=== true?"}
+        R5["✅ 통과"]
+        R6["❌ AuthorizationException<br/>(403 AUTH101)"]
+    end
+
+    Q1 --> Q2 --> Q3 --> Q4 --> Q5
+    Q5 -->|"request.user에 주입"| R1
+    R1 --> R2 --> R3 --> R4
+    R4 -->|"Yes"| R5
+    R4 -->|"No"| R6
+```
+
+### D-4.3 권한 할당/제거 패턴
+
+```mermaid
+flowchart LR
+    subgraph RoleOps["역할 → 권한 관리"]
+        PUT_COPY["PUT /roles/:id/permissions<br/>(전체 교체 — 다른 역할에서 복사)"]
+        PATCH_MOD["PATCH /roles/:id/permissions<br/>(증분 수정 — add/remove)"]
+    end
+
+    subgraph UserOps["사용자 → 역할 관리"]
+        PATCH_ROLE["PATCH /users/:id/roles<br/>(증분 수정 — add/remove)"]
+    end
+
+    subgraph Result["최종 효과"]
+        EFFECT["다음 JWT 발급 시<br/>JwtStrategy.validate()에서<br/>갱신된 permissions 맵 반영"]
+    end
+
+    PUT_COPY --> Result
+    PATCH_MOD --> Result
+    PATCH_ROLE --> Result
+```
+
+---
+
+## D-5. 데이터베이스 ERD (전체)
+
+기존 섹션 7.1의 텍스트 다이어그램을 Mermaid ERD로 변환한다. 28개 엔티티의 전체 관계를 표현한다.
+
+### D-5.1 핵심 도메인 ERD
+
+```mermaid
+erDiagram
+    Tenant ||--o{ User : "1:N"
+    Tenant ||--o{ Role : "1:N"
+    Tenant ||--o{ TenantStatus : "1:N"
+    Tenant ||--o{ Website : "1:N"
+    Tenant ||--o{ Board : "1:N"
+    Tenant ||--o{ Counsel : "1:N"
+    Tenant ||--o{ CounselFieldDef : "1:N"
+    Tenant ||--o{ BlockIp : "1:N"
+    Tenant ||--o{ BlockHp : "1:N"
+    Tenant ||--o{ BlockWord : "1:N"
+
+    User ||--o{ UserRole : "N:M via"
+    Role ||--o{ UserRole : "N:M via"
+    Role ||--o{ RolePermission : "N:M via"
+    Permission ||--o{ RolePermission : "N:M via"
+    Page ||--o{ Permission : "1:N"
+    Action ||--o{ Permission : "1:N"
+    Page ||--o| Page : "self-ref parent"
+
+    User ||--o{ RefreshToken : "1:N"
+    User ||--o{ Post : "1:N author"
+
+    Website ||--o{ Counsel : "1:N"
+    TenantStatus ||--o{ Counsel : "N:1 status"
+    User ||--o{ Counsel : "N:1 employee"
+
+    Board ||--o{ Post : "1:N"
+
+    Counsel ||--o{ CounselFieldValue : "1:N"
+    Counsel ||--o{ CounselLog : "1:N"
+    Counsel ||--o{ CounselMemoLog : "1:N"
+    CounselFieldDef ||--o{ CounselFieldValue : "1:N"
+
+    CodeGroup ||--o{ Code : "1:N"
+
+    Tenant {
+        int tenant_id PK
+        varchar tenant_name UK
+        varchar display_name
+        varchar domain
+        tinyint is_active
+    }
+
+    User {
+        int user_seq PK
+        int tenant_id FK
+        varchar user_id
+        varchar user_pwd
+        varchar corp_name
+        varchar user_name
+        int token_version
+        tinyint is_active
+        datetime reg_dtm
+        datetime stop_dtm
+    }
+
+    Role {
+        int role_id PK
+        int tenant_id FK
+        varchar role_name
+        varchar display_name
+        text description
+        tinyint is_active
+    }
+
+    Website {
+        varchar web_code PK
+        int tenant_id FK
+        int user_seq FK
+        varchar web_url
+        varchar web_title
+        tinyint is_active
+        int duplicate_allow_after_days
+    }
+
+    Counsel {
+        bigint counsel_seq PK
+        int tenant_id FK
+        varchar web_code FK
+        varchar name
+        varchar counsel_hp
+        varchar counsel_ip
+        int counsel_stat FK
+        int emp_seq FK
+        char duplicate_state
+        enum delete_state
+    }
+
+    TenantStatus {
+        int tenant_status_id PK
+        int tenant_id FK
+        varchar status_group
+        varchar status_key
+        varchar status_name
+        varchar description
+        varchar color
+        int sort_order
+        tinyint is_active
+    }
+
+    Board {
+        int board_id PK
+        int tenant_id FK
+        varchar board_key
+        varchar name
+        tinyint is_active
+    }
+
+    Post {
+        int post_id PK
+        int board_id FK
+        int tenant_id FK
+        int user_seq FK
+        varchar title
+        longtext content
+        tinyint is_notice
+        enum delete_state
+    }
+
+    RefreshToken {
+        int id PK
+        varchar token_id UK
+        varchar token_hash
+        int user_seq FK
+        datetime expires_at
+        tinyint revoked
+    }
+
+    CounselFieldDef {
+        bigint field_id PK
+        int tenant_id FK
+        varchar field_key
+        varchar label
+        varchar field_type
+        tinyint is_required
+    }
+
+    CounselFieldValue {
+        bigint counsel_seq PK_FK
+        int tenant_id PK
+        bigint field_id PK_FK
+        text value_text
+        decimal value_number
+        date value_date
+        datetime value_datetime
+    }
+
+    CounselLog {
+        bigint counsel_seq PK_FK
+        int tenant_id PK
+        int log_no PK
+        int counsel_stat FK
+        datetime reg_dtm
+    }
+
+    CounselMemoLog {
+        bigint memo_log_id PK
+        bigint counsel_seq FK
+        int tenant_id
+        int status_id FK
+        text memo_text
+        int created_by FK
+        tinyint is_deleted
+    }
+
+    BlockIp {
+        bigint dbi_idx PK
+        int tenant_id FK
+        varchar block_ip
+        varchar reason
+        tinyint is_active
+    }
+
+    BlockHp {
+        bigint dbh_idx PK
+        int tenant_id FK
+        varchar block_hp
+        varchar reason
+        tinyint is_active
+    }
+
+    BlockWord {
+        bigint dbw_idx PK
+        int tenant_id FK
+        varchar block_word
+        varchar match_type
+        varchar reason
+        tinyint is_active
+    }
+
+    Permission {
+        int permission_id PK
+        int page_id FK
+        int action_id FK
+        varchar display_name
+        tinyint is_active
+    }
+
+    Page {
+        int page_id PK
+        int parent_id FK
+        varchar page_name UK
+        varchar path
+        varchar display_name
+        tinyint is_active
+    }
+
+    Action {
+        int action_id PK
+        varchar action_name UK
+        varchar display_name
+        tinyint is_active
+    }
+
+    UserRole {
+        int user_seq PK_FK
+        int tenant_id PK
+        int role_id PK_FK
+    }
+
+    RolePermission {
+        int role_id PK_FK
+        int permission_id PK_FK
+    }
+
+    CodeGroup {
+        int code_group_id PK
+        varchar code_group_key UK
+        varchar code_group_name
+    }
+
+    Code {
+        int code_id PK
+        int code_group_id FK
+        varchar code_key
+        varchar code_name
+    }
+```
+
+### D-5.2 인덱스 및 유니크 제약 요약
+
+| 엔티티 | UNIQUE 제약 | 목적 |
+|--------|------------|------|
+| Tenant | `(tenant_name)` | 테넌트명 중복 방지 |
+| User | `(tenant_id, user_id)`, `(user_seq, tenant_id)` | 테넌트 내 ID 유일성 + 복합 FK 지원 |
+| Role | `(tenant_id, role_name)`, `(role_id, tenant_id)` | 테넌트 내 역할명 유일성 |
+| UserRole | `(user_seq, tenant_id, role_id)` PK | 중복 할당 방지 |
+| RolePermission | `(role_id, permission_id)` PK | 중복 권한 부여 방지 |
+| Permission | `(page_id, action_id)` | 동일 조합 중복 방지 |
+| Page | `(page_name)` | 페이지 코드 유일성 |
+| Action | `(action_name)` | 액션 코드 유일성 |
+| TenantStatus | `(tenant_id, status_group, status_key)` | 테넌트 내 상태 코드 유일성 |
+| Website | `(web_code, tenant_id)` | 테넌트 내 웹사이트 코드 유일성 |
+| Counsel | `(counsel_seq, tenant_id)` | 복합 FK 지원 |
+| CounselFieldDef | `(tenant_id, field_key)` | 테넌트 내 필드 키 유일성 |
+| Board | `(tenant_id, board_key)` | 테넌트 내 게시판 슬러그 유일성 |
+| BlockIp | `(tenant_id, block_ip)` | 중복 차단 방지 |
+| BlockHp | `(tenant_id, block_hp)` | 중복 차단 방지 |
+| BlockWord | `(tenant_id, block_word, match_type)` | 동일 단어+타입 중복 방지 |
+| RefreshToken | `(token_id)` | 토큰 ID 유일성 |
+| CodeGroup | `(code_group_key)` | 코드 그룹 키 유일성 |
+| Code | `(code_group_id, code_key)` | 그룹 내 코드 키 유일성 |
+
+---
+
+## D-6. 백엔드 계층 구조 (Layered Architecture)
+
+기존 섹션 1.4의 디렉터리 구조를 아키텍처 계층 관점으로 재구성한다.
+
+### D-6.1 계층 다이어그램
+
+```mermaid
+flowchart TB
+    subgraph Presentation["Presentation Layer (Controller)"]
+        direction LR
+        DEC["@RequireAuth<br/>@ApiOperation<br/>@Throttle"]
+        CTRL["*.controller.ts<br/>- HTTP 요청/응답 처리<br/>- DTO 매핑<br/>- tenantId 추출 (req.user)"]
+        DTO["dto/<br/>- Request DTO (검증 규칙)<br/>- Response DTO (직렬화)"]
+    end
+
+    subgraph Business["Business Layer (Service)"]
+        direction LR
+        SVC["*.service.ts<br/>- 비즈니스 로직<br/>- tenantId 스코프 필터링<br/>- 트랜잭션 관리"]
+        EXCEPT["exceptions/<br/>- BaseBusinessException<br/>- ValidationException<br/>- BusinessConflictException"]
+    end
+
+    subgraph Data["Data Access Layer (Repository)"]
+        direction LR
+        REPO["TypeORM Repository<br/>- @InjectRepository<br/>- CRUD 쿼리<br/>- QueryBuilder"]
+        ENTITY["entities/<br/>- Column/Relation 매핑<br/>- 제약 조건 정의"]
+    end
+
+    subgraph Cross["Cross-Cutting Concerns"]
+        direction LR
+        GUARD["Guards<br/>JwtAuthGuard<br/>PermissionGuard<br/>ThrottlerGuard"]
+        FILTER["Filters<br/>GlobalExceptionFilter"]
+        MIDWARE["Middleware<br/>RequestIdMiddleware"]
+        DECO["Decorators<br/>@RequireAuth<br/>@Transactional"]
+        CONFIG["Config<br/>ConfigModule<br/>database.config"]
+    end
+
+    Presentation --> Business --> Data
+    Cross -.->|"적용"| Presentation
+    Cross -.->|"적용"| Business
+
+    style Presentation fill:#e3f2fd
+    style Business fill:#e8f5e9
+    style Data fill:#fff3e0
+    style Cross fill:#f3e5f5
+```
+
+### D-6.2 모듈 의존성 그래프
+
+```mermaid
+flowchart TB
+    APP["AppModule"]
+
+    APP --> AUTH["AuthModule"]
+    APP --> USERS["UsersModule"]
+    APP --> ROLES["RolesModule"]
+    APP --> RBAC["PermissionsModule"]
+    APP --> TENANTS["TenantsModule"]
+    APP --> SUPER["SuperModule"]
+    APP --> HEALTH["HealthModule"]
+    APP --> WEB["WebsitesModule"]
+    APP --> SEC["SecurityModule"]
+    APP --> BOARD["BoardsModule"]
+    APP --> COUNSEL["CounselModule"]
+
+    APP --> CONFIG["ConfigModule<br/>(global)"]
+    APP --> THROTTLE["ThrottlerModule<br/>(global)"]
+    APP --> DB["DatabaseModule"]
+
+    AUTH --> DB
+    USERS --> DB
+    ROLES --> DB
+    RBAC --> DB
+    TENANTS --> DB
+    SUPER --> DB
+    WEB --> DB
+    SEC --> DB
+    BOARD --> DB
+    COUNSEL --> DB
+    COUNSEL --> SEC
+
+    DB --> TYPEORM["TypeORM<br/>MySQL Connection"]
+
+    style APP fill:#e3f2fd
+    style DB fill:#fff3e0
+    style CONFIG fill:#f3e5f5
+    style THROTTLE fill:#f3e5f5
+```
+
+### D-6.3 서비스 계층 패턴
+
+모든 인증 API의 서비스 메서드는 동일한 패턴을 따른다:
+
+```mermaid
+flowchart LR
+    subgraph Pattern["서비스 메서드 패턴"]
+        SIG["findUsers(<br/>  tenantId: number,<br/>  query: FindUsersDto<br/>)"]
+        WHERE["queryBuilder<br/>.where('tenant_id = :tenantId',<br/>  { tenantId })"]
+        RETURN["return { items, pageInfo }"]
+    end
+
+    SIG --> WHERE --> RETURN
+```
+
+| 패턴 요소 | 설명 | 적용 범위 |
+|-----------|------|----------|
+| `tenantId` 첫 번째 인자 | 컨트롤러가 `req.user.tenantId`에서 추출하여 전달 | 모든 인증된 서비스 메서드 |
+| `WHERE tenant_id = :tenantId` | 테넌트 격리 필터 | 모든 데이터 조회/수정/삭제 |
+| `@Transactional()` | 트랜잭션 래핑 | 복수 엔티티 조작 (signup, 역할 할당 등) |
+| `BusinessException` 계열 throw | 비즈니스 규칙 위반 시 | 중복 검사, 존재 여부 검증 등 |
+
+---
+
+## D-7. 상담 도메인 심화 구조
+
+기존 섹션 6.13으로는 표현하기 어려운 상담 도메인 전체 흐름을 보강한다.
+
+### D-7.1 상담 생명주기 (State Machine)
+
+```mermaid
+stateDiagram-v2
+    [*] --> NEW: 상담 접수<br/>(POST /counsels)
+    [*] --> DUPLICATE: 중복 감지 시<br/>(name+counselHp 기간 내 존재)
+
+    NEW --> IN_PROGRESS: 처리 시작
+    NEW --> SCHEDULED: 예약 설정<br/>(counselResvDtm 필수)
+    NEW --> CONTACTED: 연락 완료
+
+    DUPLICATE --> IN_PROGRESS: 중복 건 처리
+    DUPLICATE --> CONTACTED: 바로 완료
+
+    IN_PROGRESS --> SCHEDULED: 예약 변경
+    IN_PROGRESS --> CONTACTED: 처리 완료
+
+    SCHEDULED --> IN_PROGRESS: 예약 취소
+    SCHEDULED --> CONTACTED: 처리 완료
+
+    note right of NEW: statusKey = 'NEW'<br/>statusName = '신규 접수'
+    note right of DUPLICATE: statusKey = 'DUPLICATE'<br/>statusName = '중복'
+    note right of SCHEDULED: statusKey = 'SCHEDULED'<br/>counselResvDtm NOT NULL
+```
+
+### D-7.2 동적 필드 시스템
+
+```mermaid
+flowchart TB
+    subgraph Define["필드 정의 (CounselFieldDef)"]
+        DEF1["fieldKey: 'budget'<br/>label: '예산'<br/>fieldType: 'number'<br/>isRequired: 0"]
+        DEF2["fieldKey: 'prefer_date'<br/>label: '희망일'<br/>fieldType: 'date'<br/>isRequired: 1"]
+        DEF3["fieldKey: 'category'<br/>label: '카테고리'<br/>fieldType: 'select'<br/>optionsJson: [...]"]
+    end
+
+    subgraph Store["필드 값 저장 (CounselFieldValue)"]
+        VAL1["counsel_seq: 1<br/>field_id: 1<br/>value_number: 5000000"]
+        VAL2["counsel_seq: 1<br/>field_id: 2<br/>value_date: '2026-04-01'"]
+        VAL3["counsel_seq: 1<br/>field_id: 3<br/>value_text: '마케팅'"]
+    end
+
+    subgraph API["API 흐름"]
+        GET_FIELDS["GET /counsel-fields<br/>→ 활성 필드 정의 목록"]
+        POST_COUNSEL["POST /counsels<br/>fieldValues: [{fieldId, valueText, ...}]"]
+        GET_COUNSEL["GET /counsels/:id<br/>→ fieldValues 포함 응답"]
+    end
+
+    DEF1 -.->|"fieldId=1"| VAL1
+    DEF2 -.->|"fieldId=2"| VAL2
+    DEF3 -.->|"fieldId=3"| VAL3
+
+    GET_FIELDS --> POST_COUNSEL --> GET_COUNSEL
+```
+
+---
+
+## D-8. 보안 아키텍처 요약
+
+기존 섹션 9.2를 계층별 보안 메커니즘 관점으로 보강한다.
+
+```mermaid
+flowchart TB
+    subgraph Network["네트워크 계층"]
+        CORS_L["CORS<br/>허용 Origin만 접근"]
+        HELMET_L["Helmet<br/>X-Frame-Options, HSTS 등"]
+        PROXY_L["Trust Proxy<br/>실제 클라이언트 IP 감지"]
+    end
+
+    subgraph RateLimit["요청 제한 계층"]
+        THROTTLE_L["ThrottlerGuard (전역)<br/>60회/60초"]
+        AUTH_LIMIT["인증 API 개별 제한<br/>login:5, signup:3, refresh:10"]
+    end
+
+    subgraph Auth_L["인증 계층"]
+        JWT_L["JWT (Access Token)<br/>서명 검증 + 만료 확인"]
+        TV_L["tokenVersion<br/>강제 무효화"]
+        REFRESH_L["Refresh Token Rotation<br/>BCrypt + 즉시 revoke"]
+    end
+
+    subgraph Authz["인가 계층"]
+        RBAC_L["@RequireAuth(page, action)<br/>O(1) 권한 맵 룩업"]
+        TENANT_L["tenantId 스코프<br/>서비스 레이어 격리"]
+    end
+
+    subgraph Data_L["데이터 계층"]
+        BCRYPT_L["bcrypt (salt:10)<br/>비밀번호 해싱"]
+        VPIPE_L["ValidationPipe<br/>whitelist + forbidNonWhitelisted"]
+        BLOCK_L["Security 3단계<br/>HP → IP → Word 차단"]
+        LOCK_L["SELECT FOR UPDATE<br/>동시성 제어"]
+    end
+
+    subgraph Response["응답 계층"]
+        MSG_SPLIT["내부/외부 메시지 분리<br/>AUTH001: 'Authentication required'"]
+        REQID_L["X-Request-ID<br/>에러 추적"]
+    end
+
+    Network --> RateLimit --> Auth_L --> Authz --> Data_L --> Response
+```
+
+| 보안 위협 | 대응 메커니즘 | 적용 위치 |
+|-----------|-------------|----------|
+| 비밀번호 추측 (Brute Force) | Rate Limiting (5회/60초) + bcrypt | ThrottlerGuard, AuthService |
+| 토큰 탈취 | 단기 만료(3600s) + tokenVersion + 즉시 무효화 | JwtStrategy, AuthService |
+| 토큰 재사용 (Replay) | Refresh Token Rotation + 즉시 revoke | AuthService.refresh() |
+| 테넌트 간 데이터 접근 | tenantId 서비스 레이어 필터링 | 모든 Service 메서드 |
+| 권한 상승 (Privilege Escalation) | PermissionGuard + O(1) 맵 검증 | PermissionGuard |
+| SQL Injection | TypeORM 파라미터 바인딩 + ValidationPipe | 전역 |
+| XSS | Helmet (보안 헤더) | main.ts |
+| 스팸 상담 | 3단계 차단 (HP → IP → 금칙어) | CounselService |
+| 동시 중복 요청 (Race Condition) | SELECT ... FOR UPDATE | CounselService |
+| 에러 정보 노출 | 내부/외부 메시지 분리 | GlobalExceptionFilter |
