@@ -38,14 +38,8 @@ export class CounselDashboardService {
     query: CounselDashboardQueryDto,
     empSeqFilter?: number,
   ): Promise<CounselDashboardResponseDto> {
-    const now = new Date();
-    const endDate = query.endDate ?? this.formatDate(now);
-    const startDateObj = new Date(now);
-    startDateObj.setDate(startDateObj.getDate() - 30);
-    const startDate = query.startDate ?? this.formatDate(startDateObj);
-
-    const startDtm = `${startDate} 00:00:00`;
-    const endDtm = `${endDate} 23:59:59`;
+    const startDtm = query.startDate ? `${query.startDate} 00:00:00` : undefined;
+    const endDtm = query.endDate ? `${query.endDate} 23:59:59` : undefined;
 
     const [
       summary,
@@ -59,7 +53,7 @@ export class CounselDashboardService {
       this.getSummary(tenantId, startDtm, endDtm, empSeqFilter),
       this.getStatusDistribution(tenantId, startDtm, endDtm, empSeqFilter),
       this.getEmployeeStats(tenantId, startDtm, endDtm, empSeqFilter),
-      this.getDailyTrends(tenantId, startDtm, endDtm, startDate, endDate, empSeqFilter),
+      this.getDailyTrends(tenantId, startDtm, endDtm, query.startDate, query.endDate, empSeqFilter),
       this.getTopWebsites(tenantId, startDtm, endDtm, empSeqFilter),
       this.getHourlyDistribution(tenantId, startDtm, endDtm, empSeqFilter),
       this.getUpcomingReservations(tenantId, empSeqFilter),
@@ -82,8 +76,8 @@ export class CounselDashboardService {
 
   private async getSummary(
     tenantId: number,
-    startDtm: string,
-    endDtm: string,
+    startDtm?: string,
+    endDtm?: string,
     empSeqFilter?: number,
   ): Promise<CounselDashboardSummaryDto> {
     // 해당 테넌트의 WON, LOST statusKey에 해당하는 ID 조회
@@ -116,10 +110,14 @@ export class CounselDashboardService {
         'completedCount',
       )
       .where('c.tenant_id = :tenantId', { tenantId })
-      .andWhere('c.delete_state = :deleteState', { deleteState: DeleteState.N })
-      .andWhere('c.reg_dtm >= :startDtm', { startDtm })
-      .andWhere('c.reg_dtm <= :endDtm', { endDtm });
+      .andWhere('c.delete_state = :deleteState', { deleteState: DeleteState.N });
 
+    if (startDtm) {
+      qb.andWhere('c.reg_dtm >= :startDtm', { startDtm });
+    }
+    if (endDtm) {
+      qb.andWhere('c.reg_dtm <= :endDtm', { endDtm });
+    }
     if (empSeqFilter !== undefined) {
       qb.andWhere('c.emp_seq = :empSeq', { empSeq: empSeqFilter });
     }
@@ -143,8 +141,8 @@ export class CounselDashboardService {
 
   private async getStatusDistribution(
     tenantId: number,
-    startDtm: string,
-    endDtm: string,
+    startDtm?: string,
+    endDtm?: string,
     empSeqFilter?: number,
   ): Promise<StatusDistributionItemDto[]> {
     const qb = this.counselRepository
@@ -156,13 +154,17 @@ export class CounselDashboardService {
       .addSelect('COUNT(*)', 'count')
       .where('c.tenant_id = :tenantId', { tenantId })
       .andWhere('c.delete_state = :deleteState', { deleteState: DeleteState.N })
-      .andWhere('c.reg_dtm >= :startDtm', { startDtm })
-      .andWhere('c.reg_dtm <= :endDtm', { endDtm })
       .groupBy('c.counsel_stat')
       .addGroupBy('ts.status_name')
       .addGroupBy('ts.color')
       .orderBy('COUNT(*)', 'DESC');
 
+    if (startDtm) {
+      qb.andWhere('c.reg_dtm >= :startDtm', { startDtm });
+    }
+    if (endDtm) {
+      qb.andWhere('c.reg_dtm <= :endDtm', { endDtm });
+    }
     if (empSeqFilter !== undefined) {
       qb.andWhere('c.emp_seq = :empSeq', { empSeq: empSeqFilter });
     }
@@ -182,8 +184,8 @@ export class CounselDashboardService {
 
   private async getEmployeeStats(
     tenantId: number,
-    startDtm: string,
-    endDtm: string,
+    startDtm?: string,
+    endDtm?: string,
     empSeqFilter?: number,
   ): Promise<EmployeeStatsItemDto[]> {
     const qb = this.counselRepository
@@ -194,12 +196,16 @@ export class CounselDashboardService {
       .addSelect('COUNT(*)', 'count')
       .where('c.tenant_id = :tenantId', { tenantId })
       .andWhere('c.delete_state = :deleteState', { deleteState: DeleteState.N })
-      .andWhere('c.reg_dtm >= :startDtm', { startDtm })
-      .andWhere('c.reg_dtm <= :endDtm', { endDtm })
       .groupBy('c.emp_seq')
       .addGroupBy('emp.user_name')
       .orderBy('COUNT(*)', 'DESC');
 
+    if (startDtm) {
+      qb.andWhere('c.reg_dtm >= :startDtm', { startDtm });
+    }
+    if (endDtm) {
+      qb.andWhere('c.reg_dtm <= :endDtm', { endDtm });
+    }
     if (empSeqFilter !== undefined) {
       qb.andWhere('c.emp_seq = :empSeq', { empSeq: empSeqFilter });
     }
@@ -218,10 +224,10 @@ export class CounselDashboardService {
 
   private async getDailyTrends(
     tenantId: number,
-    startDtm: string,
-    endDtm: string,
-    startDate: string,
-    endDate: string,
+    startDtm?: string,
+    endDtm?: string,
+    startDate?: string,
+    endDate?: string,
     empSeqFilter?: number,
   ): Promise<DailyTrendItemDto[]> {
     const qb = this.counselRepository
@@ -230,11 +236,15 @@ export class CounselDashboardService {
       .addSelect('COUNT(*)', 'count')
       .where('c.tenant_id = :tenantId', { tenantId })
       .andWhere('c.delete_state = :deleteState', { deleteState: DeleteState.N })
-      .andWhere('c.reg_dtm >= :startDtm', { startDtm })
-      .andWhere('c.reg_dtm <= :endDtm', { endDtm })
       .groupBy('DATE(c.reg_dtm)')
       .orderBy('DATE(c.reg_dtm)', 'ASC');
 
+    if (startDtm) {
+      qb.andWhere('c.reg_dtm >= :startDtm', { startDtm });
+    }
+    if (endDtm) {
+      qb.andWhere('c.reg_dtm <= :endDtm', { endDtm });
+    }
     if (empSeqFilter !== undefined) {
       qb.andWhere('c.emp_seq = :empSeq', { empSeq: empSeqFilter });
     }
@@ -246,16 +256,24 @@ export class CounselDashboardService {
       dataMap.set(dateStr, Number(r.count));
     }
 
-    // 빈 날짜 포함하여 연속된 일별 데이터 생성
-    const result: DailyTrendItemDto[] = [];
-    const cursor = new Date(`${startDate}T00:00:00`);
-    const end = new Date(`${endDate}T00:00:00`);
-    while (cursor <= end) {
-      const dateStr = this.formatDate(cursor);
-      result.push({ date: dateStr, count: dataMap.get(dateStr) ?? 0 });
-      cursor.setDate(cursor.getDate() + 1);
+    // 날짜 범위가 지정된 경우 빈 날짜 포함하여 연속된 일별 데이터 생성
+    if (startDate && endDate) {
+      const result: DailyTrendItemDto[] = [];
+      const cursor = new Date(`${startDate}T00:00:00`);
+      const end = new Date(`${endDate}T00:00:00`);
+      while (cursor <= end) {
+        const dateStr = this.formatDate(cursor);
+        result.push({ date: dateStr, count: dataMap.get(dateStr) ?? 0 });
+        cursor.setDate(cursor.getDate() + 1);
+      }
+      return result;
     }
-    return result;
+
+    // 날짜 범위 미지정 시 데이터가 있는 날짜만 반환
+    return rows.map((r) => ({
+      date: r.date instanceof Date ? this.formatDate(r.date) : String(r.date),
+      count: Number(r.count),
+    }));
   }
 
   // ──────────────────────────────────────────
@@ -264,8 +282,8 @@ export class CounselDashboardService {
 
   private async getTopWebsites(
     tenantId: number,
-    startDtm: string,
-    endDtm: string,
+    startDtm?: string,
+    endDtm?: string,
     empSeqFilter?: number,
   ): Promise<WebsiteStatsItemDto[]> {
     const qb = this.counselRepository
@@ -276,13 +294,17 @@ export class CounselDashboardService {
       .addSelect('COUNT(*)', 'count')
       .where('c.tenant_id = :tenantId', { tenantId })
       .andWhere('c.delete_state = :deleteState', { deleteState: DeleteState.N })
-      .andWhere('c.reg_dtm >= :startDtm', { startDtm })
-      .andWhere('c.reg_dtm <= :endDtm', { endDtm })
       .groupBy('c.web_code')
       .addGroupBy('w.web_title')
       .orderBy('COUNT(*)', 'DESC')
       .limit(5);
 
+    if (startDtm) {
+      qb.andWhere('c.reg_dtm >= :startDtm', { startDtm });
+    }
+    if (endDtm) {
+      qb.andWhere('c.reg_dtm <= :endDtm', { endDtm });
+    }
     if (empSeqFilter !== undefined) {
       qb.andWhere('c.emp_seq = :empSeq', { empSeq: empSeqFilter });
     }
@@ -301,8 +323,8 @@ export class CounselDashboardService {
 
   private async getHourlyDistribution(
     tenantId: number,
-    startDtm: string,
-    endDtm: string,
+    startDtm?: string,
+    endDtm?: string,
     empSeqFilter?: number,
   ): Promise<HourlyDistributionItemDto[]> {
     const qb = this.counselRepository
@@ -311,11 +333,15 @@ export class CounselDashboardService {
       .addSelect('COUNT(*)', 'count')
       .where('c.tenant_id = :tenantId', { tenantId })
       .andWhere('c.delete_state = :deleteState', { deleteState: DeleteState.N })
-      .andWhere('c.reg_dtm >= :startDtm', { startDtm })
-      .andWhere('c.reg_dtm <= :endDtm', { endDtm })
       .groupBy('HOUR(c.reg_dtm)')
       .orderBy('HOUR(c.reg_dtm)', 'ASC');
 
+    if (startDtm) {
+      qb.andWhere('c.reg_dtm >= :startDtm', { startDtm });
+    }
+    if (endDtm) {
+      qb.andWhere('c.reg_dtm <= :endDtm', { endDtm });
+    }
     if (empSeqFilter !== undefined) {
       qb.andWhere('c.emp_seq = :empSeq', { empSeq: empSeqFilter });
     }
