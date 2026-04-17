@@ -372,11 +372,17 @@ export class AuthService {
       });
 
       const defaultStatuses = [
-        { statusGroup: 'counsel', statusKey: 'NEW',         statusName: '신규 접수', sortOrder: 1 },
-        { statusGroup: 'counsel', statusKey: 'DUPLICATE',   statusName: '중복',      sortOrder: 2 },
-        { statusGroup: 'counsel', statusKey: 'IN_PROGRESS', statusName: '진행중',    sortOrder: 3 },
-        { statusGroup: 'counsel', statusKey: 'SCHEDULED',   statusName: '예약',      sortOrder: 4 },
-        { statusGroup: 'counsel', statusKey: 'CONTACTED',   statusName: '상담완료',  sortOrder: 5 },
+        { statusGroup: 'counsel', statusKey: 'NEW',         statusName: '신규접수',    color: '#64748B', sortOrder: 10 },
+        { statusGroup: 'counsel', statusKey: 'TRY_CONTACT', statusName: '연락시도',    color: '#F59E0B', sortOrder: 20 },
+        { statusGroup: 'counsel', statusKey: 'CONTACTED',   statusName: '연락완료',    color: '#3B82F6', sortOrder: 30 },
+        { statusGroup: 'counsel', statusKey: 'SCHEDULED',   statusName: '상담예약',    color: '#8B5CF6', sortOrder: 40 },
+        { statusGroup: 'counsel', statusKey: 'IN_PROGRESS', statusName: '상담진행중',  color: '#0EA5E9', sortOrder: 50 },
+        { statusGroup: 'counsel', statusKey: 'HOLD',        statusName: '보류',        color: '#A3A3A3', sortOrder: 60 },
+        { statusGroup: 'counsel', statusKey: 'WON',         statusName: '계약/전환',   color: '#22C55E', sortOrder: 70 },
+        { statusGroup: 'counsel', statusKey: 'LOST',        statusName: '미전환',      color: '#EF4444', sortOrder: 80 },
+        { statusGroup: 'counsel', statusKey: 'NO_SHOW',     statusName: '노쇼',        color: '#F97316', sortOrder: 90 },
+        { statusGroup: 'counsel', statusKey: 'DUPLICATE',   statusName: '중복',        color: '#FB7185', sortOrder: 95 },
+        { statusGroup: 'counsel', statusKey: 'SPAM',        statusName: '스팸/무의미', color: '#111827', sortOrder: 99 },
       ];
       
       await manager.save(
